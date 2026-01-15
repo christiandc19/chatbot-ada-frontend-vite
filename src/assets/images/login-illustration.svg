@@ -1,0 +1,42 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background blob -->
+  <path d="M100 50C150 20 250 10 320 60C390 110 400 200 370 270C340 340 260 380 180 370C100 360 50 310 40 230C30 150 50 80 100 50Z" fill="#D5E8F5"/>
+  
+  <!-- Desk -->
+  <ellipse cx="200" cy="280" rx="150" ry="20" fill="#C4C4C4" opacity="0.3"/>
+  <rect x="50" y="240" width="300" height="8" rx="4" fill="#C4C4C4"/>
+  
+  <!-- Lamp -->
+  <line x1="70" y1="160" x2="110" y2="200" stroke="#1A4D6D" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="110" cy="200" r="6" fill="#1A4D6D"/>
+  <path d="M110 200L130 180L140 190L120 210Z" fill="#1A4D6D"/>
+  
+  <!-- Coffee cup -->
+  <ellipse cx="140" cy="230" rx="8" ry="10" fill="#D5E8F5"/>
+  <rect x="132" y="220" width="16" height="15" rx="2" fill="#D5E8F5"/>
+  
+  <!-- Laptop -->
+  <rect x="180" y="200" width="80" height="50" rx="2" fill="#1A4D6D"/>
+  <rect x="185" y="205" width="70" height="40" rx="1" fill="#2C5F7D"/>
+  <circle cx="220" cy="225" r="2" fill="#4A90B8" opacity="0.5"/>
+  
+  <!-- Person -->
+  <!-- Body -->
+  <ellipse cx="240" cy="200" rx="45" ry="55" fill="#6BA3D0"/>
+  
+  <!-- Arm -->
+  <path d="M200 180C190 190 185 200 185 215L200 220C205 210 210 200 215 190Z" fill="#F4A684"/>
+  
+  <!-- Head -->
+  <ellipse cx="240" cy="140" rx="25" ry="30" fill="#F4A684"/>
+  
+  <!-- Hair -->
+  <path d="M215 120C215 100 230 90 245 95C260 100 270 110 270 130C270 135 268 145 265 155C262 160 255 165 240 165C225 165 218 160 216 155C214 145 215 130 215 120Z" fill="#1A4D6D"/>
+  <path d="M265 140C270 145 275 155 275 170C275 180 270 190 265 195C268 185 270 170 270 155C270 150 268 145 265 140Z" fill="#1A4D6D"/>
+  
+  <!-- Paper/Document -->
+  <rect x="300" y="220" width="30" height="25" rx="2" fill="white" opacity="0.7"/>
+  <line x1="305" y1="227" x2="325" y2="227" stroke="#C4C4C4" stroke-width="1.5"/>
+  <line x1="305" y1="233" x2="325" y2="233" stroke="#C4C4C4" stroke-width="1.5"/>
+  <line x1="305" y1="239" x2="320" y2="239" stroke="#C4C4C4" stroke-width="1.5"/>
+</svg>
