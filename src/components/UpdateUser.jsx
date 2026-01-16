@@ -226,10 +226,11 @@ const UpdateUser = ({ user, onLogout }) => {
                       </td>
                       <td className="users-table-cell">
                         <button
-                          className="btn btn-settings update-button"
+                          className="btn btn-update-action"
                           onClick={() => handleUpdateUser(userItem)}
+                          title="Edit User"
                         >
-                          Update
+                          ✏️
                         </button>
                       </td>
                     </tr>

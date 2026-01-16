@@ -101,6 +101,47 @@ async login(email, password) {
     return this._readJsonOrSuccess(response, "Reset password email sent");
   }
 
+  async createCommunity(communityData) {
+    const payload = {
+      Email: communityData.email,
+      Phone: communityData.phone,
+      UrlAddress: communityData.urlAddress
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Communities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to create community"));
+    return this._readJsonOrSuccess(response, "Community created successfully");
+  }
+
+  async getCommunities() {
+    const response = await fetch(`${API_BASE_URL}/Communities`);
+    if (!response.ok) throw new Error("Failed to fetch communities");
+    return response.json();
+  }
+
+  async updateCommunity(communityData) {
+    const payload = {
+      Id: communityData.id,
+      Email: communityData.email,
+      Phone: communityData.phone,
+      UrlAddress: communityData.urlAddress
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Communities/${communityData.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to update community"));
+    return this._readJsonOrSuccess(response, "Community updated successfully");
+  }
+
   async _readJsonOrSuccess(response, msg) {
     const len = response.headers.get("content-length");
     if (!len || len === "0") return { success: true, message: msg };

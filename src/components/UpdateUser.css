@@ -152,6 +152,23 @@
   color: #dc2626;
 }
 
+.btn-update-action {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  min-width: auto;
+}
+
+.btn-update-action:hover {
+  background-color: #e5e7eb;
+}
+
 .update-button {
   padding: 8px 16px;
   font-size: 12px;
