@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../contexts/NotificationContext';
 import './Communities.css';
@@ -8,14 +8,31 @@ import apiService from '../services/apiService';
 const Communities = ({ user, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState([]);
   const [formData, setFormData] = useState({
     email: '',
     phone: '',
-    urlAddress: ''
+    urlAddress: '',
+    companyName: ''
   });
   const [errors, setErrors] = useState({});
   const { showNotification } = useNotification();
   const navigate = useNavigate();
+
+  // Fetch companies when component mounts
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const companiesData = await apiService.getCompanies();
+        setCompanies(companiesData);
+      } catch (error) {
+        console.error('Failed to load companies:', error);
+        showNotification('Failed to load companies', 'error');
+      }
+    };
+
+    fetchCompanies();
+  }, []);
 
   const handleNavigateToUpdateCommunity = () => {
     navigate('/communities/update-community');
@@ -26,7 +43,8 @@ const Communities = ({ user, onLogout }) => {
     setFormData({
       email: '',
       phone: '',
-      urlAddress: ''
+      urlAddress: '',
+      companyName: ''
     });
     setErrors({});
   };
@@ -71,6 +89,10 @@ const Communities = ({ user, onLogout }) => {
       newErrors.urlAddress = 'Please enter a valid URL (starting with http:// or https://)';
     }
     
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = 'Company is required';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -84,7 +106,8 @@ const Communities = ({ user, onLogout }) => {
         const communityData = {
           email: formData.email,
           phone: formData.phone,
-          urlAddress: formData.urlAddress
+          urlAddress: formData.urlAddress,
+          companyId: parseInt(formData.companyName)
         };
         
         await apiService.createCommunity(communityData);
@@ -198,6 +221,30 @@ const Communities = ({ user, onLogout }) => {
                 {errors.urlAddress && (
                   <span className="error-message">
                     {errors.urlAddress}
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  Company <span className="required">*</span>
+                </label>
+                <select
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                  className={`form-input ${errors.companyName ? 'error' : ''}`}
+                >
+                  <option value="">Select a company</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.companyName}
+                    </option>
+                  ))}
+                </select>
+                {errors.companyName && (
+                  <span className="error-message">
+                    {errors.companyName}
                   </span>
                 )}
               </div>

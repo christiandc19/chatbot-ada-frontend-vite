@@ -12,22 +12,28 @@ const UpdateCommunity = ({ user, onLogout }) => {
   const [error, setError] = useState('');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState(null);
+  const [companies, setCompanies] = useState([]);
   const [formLoading, setFormLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     phone: '',
-    urlAddress: ''
+    urlAddress: '',
+    companyName: ''
   });
   const [formErrors, setFormErrors] = useState({});
   const navigate = useNavigate();
   const { showNotification } = useNotification();
 
   useEffect(() => {
-    const fetchCommunities = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const communitiesData = await apiService.getCommunities();
+        const [communitiesData, companiesData] = await Promise.all([
+          apiService.getCommunities(),
+          apiService.getCompanies()
+        ]);
         setCommunities(communitiesData);
+        setCompanies(companiesData);
       } catch (error) {
         setError('Failed to load communities. Please refresh the page or try again later.');
       } finally {
@@ -35,7 +41,7 @@ const UpdateCommunity = ({ user, onLogout }) => {
       }
     };
 
-    fetchCommunities();
+    fetchData();
   }, []);
 
   const handleBackToCommunities = () => {
@@ -47,7 +53,8 @@ const UpdateCommunity = ({ user, onLogout }) => {
     setFormData({
       email: community.email || '',
       phone: community.phone || '',
-      urlAddress: community.urlAddress || ''
+      urlAddress: community.urlAddress || '',
+      companyName: community.companyId?.toString() || ''
     });
     setFormErrors({});
     setIsUpdateModalOpen(true);
@@ -59,7 +66,8 @@ const UpdateCommunity = ({ user, onLogout }) => {
     setFormData({
       email: '',
       phone: '',
-      urlAddress: ''
+      urlAddress: '',
+      companyName: ''
     });
     setFormErrors({});
   };
@@ -100,6 +108,10 @@ const UpdateCommunity = ({ user, onLogout }) => {
       newErrors.urlAddress = 'Please enter a valid URL (starting with http:// or https://)';
     }
     
+    if (!formData.companyName) {
+      newErrors.companyName = 'Company is required';
+    }
+    
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -114,7 +126,8 @@ const UpdateCommunity = ({ user, onLogout }) => {
           id: selectedCommunity.id,
           email: formData.email,
           phone: formData.phone,
-          urlAddress: formData.urlAddress
+          urlAddress: formData.urlAddress,
+          companyId: formData.companyName && !isNaN(formData.companyName) ? parseInt(formData.companyName) : null
         };
         
         await apiService.updateCommunity(communityData);
@@ -289,6 +302,33 @@ const UpdateCommunity = ({ user, onLogout }) => {
                 {formErrors.urlAddress && (
                   <span className="error-message">
                     {formErrors.urlAddress}
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  Company <span className="required">*</span>
+                </label>
+                <select
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                  className={`form-input ${formErrors.companyName ? 'error' : ''}`}
+                  required
+                >
+                  <option value="">Select a company</option>
+                  {companies.map((company) => {
+                    return (
+                      <option key={company.companyId || company.id} value={company.companyId || company.id}>
+                        {company.companyName || company.name}
+                      </option>
+                    );
+                  })}
+                </select>
+                {formErrors.companyName && (
+                  <span className="error-message">
+                    {formErrors.companyName}
                   </span>
                 )}
               </div>
