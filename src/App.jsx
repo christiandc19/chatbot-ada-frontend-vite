@@ -11,6 +11,7 @@ import Stats from './components/Stats';
 import Communities from './components/Communities';
 import Settings from './components/Settings';
 import UpdateUser from './components/UpdateUser';
+import UpdateCommunity from './components/UpdateCommunity';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -76,6 +77,7 @@ function App() {
                       <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
                       <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
                       <Route path="/communities" element={<Communities user={user} onLogout={handleLogout} />} />
+                      <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
                       <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
                       <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
                     </Routes>
