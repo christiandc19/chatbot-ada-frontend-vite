@@ -12,6 +12,7 @@ import Communities from './components/Communities';
 import Settings from './components/Settings';
 import UpdateUser from './components/UpdateUser';
 import UpdateCommunity from './components/UpdateCommunity';
+import UpdateCompany from './components/UpdateCompany';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -80,6 +81,7 @@ function App() {
                       <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
                       <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
                       <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
+                      <Route path="/settings/update-company" element={<UpdateCompany user={user} onLogout={handleLogout} />} />
                     </Routes>
                   </div>
                 </ProtectedRoute>

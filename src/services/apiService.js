@@ -142,6 +142,49 @@ async login(email, password) {
     return this._readJsonOrSuccess(response, "Community updated successfully");
   }
 
+  async createCompany(companyData) {
+    const payload = {
+      CompanyName: companyData.companyName,
+      Email: companyData.email,
+      Phone: companyData.phone,
+      UrlAddress: companyData.website
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Companies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to create company"));
+    return this._readJsonOrSuccess(response, "Company created successfully");
+  }
+
+  async getCompanies() {
+    const response = await fetch(`${API_BASE_URL}/Companies`);
+    if (!response.ok) throw new Error("Failed to fetch companies");
+    return response.json();
+  }
+
+  async updateCompany(companyData) {
+    const payload = {
+      Id: companyData.id,
+      CompanyName: companyData.companyName,
+      Email: companyData.email,
+      Phone: companyData.phone,
+      UrlAddress: companyData.urlAddress
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Companies/${companyData.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to update company"));
+    return this._readJsonOrSuccess(response, "Company updated successfully");
+  }
+
   async _readJsonOrSuccess(response, msg) {
     const len = response.headers.get("content-length");
     if (!len || len === "0") return { success: true, message: msg };
