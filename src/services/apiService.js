@@ -43,6 +43,7 @@ async login(email, password) {
       FirstName: userData.firstName,
       LastName: userData.lastName,
       RoleId: userData.roleId,
+      CompanyId: userData.companyId,
       IsActive: true,
     };
 
@@ -62,6 +63,7 @@ async login(email, password) {
       FirstName: userData.firstName,
       LastName: userData.lastName,
       RoleId: userData.roleId,
+      CompanyId: userData.companyId,
       IsActive: userData.isActive ?? true,
     };
 
@@ -105,7 +107,8 @@ async login(email, password) {
     const payload = {
       Email: communityData.email,
       Phone: communityData.phone,
-      UrlAddress: communityData.urlAddress
+      UrlAddress: communityData.urlAddress,
+      CompanyId: communityData.companyId
     };
 
     const response = await fetch(`${API_BASE_URL}/Communities`, {
@@ -129,7 +132,8 @@ async login(email, password) {
       Id: communityData.id,
       Email: communityData.email,
       Phone: communityData.phone,
-      UrlAddress: communityData.urlAddress
+      UrlAddress: communityData.urlAddress,
+      CompanyId: communityData.companyId
     };
 
     const response = await fetch(`${API_BASE_URL}/Communities/${communityData.id}`, {

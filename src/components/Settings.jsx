@@ -10,6 +10,7 @@ const Settings = ({ user, onLogout }) => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -20,7 +21,8 @@ const Settings = ({ user, onLogout }) => {
     firstName: '',
     lastName: '',
     role: '',
-    email: ''
+    email: '',
+    companyName: ''
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -36,18 +38,22 @@ const Settings = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
 
-  // Fetch roles when component mounts
+  // Fetch roles and companies when component mounts
   useEffect(() => {
-    const fetchRoles = async () => {
+    const fetchData = async () => {
       try {
-        const rolesData = await apiService.getRolesForSettings();
+        const [rolesData, companiesData] = await Promise.all([
+          apiService.getRolesForSettings(),
+          apiService.getCompanies()
+        ]);
         setRoles(rolesData);
+        setCompanies(companiesData);
       } catch (error) {
-        setError('Failed to load roles. Please refresh the page or try again later.');
+        setError('Failed to load data. Please refresh the page or try again later.');
       }
     };
 
-    fetchRoles();
+    fetchData();
   }, []);
 
   const handleInputChange = (e) => {
@@ -84,12 +90,18 @@ const Settings = ({ user, onLogout }) => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         roleId: formData.role && !isNaN(formData.role) ? parseInt(formData.role) : null,
-        email: formData.email
+        email: formData.email,
+        companyId: formData.companyName && !isNaN(formData.companyName) ? parseInt(formData.companyName) : null
       };
       
-      // Validate that we have a valid roleId
+      // Validate that we have a valid roleId and companyId
       if (!userData.roleId) {
         setError('Please select a valid role');
+        return;
+      }
+      
+      if (!userData.companyId) {
+        setError('Please select a valid company');
         return;
       }
       
@@ -104,7 +116,8 @@ const Settings = ({ user, onLogout }) => {
         firstName: '',
         lastName: '',
         role: '',
-        email: ''
+        email: '',
+        companyName: ''
       });
     } catch (error) {
       setError(error.message || 'Failed to create user. Please try again.');
@@ -159,7 +172,8 @@ const Settings = ({ user, onLogout }) => {
       firstName: '',
       lastName: '',
       role: '',
-      email: ''
+      email: '',
+      companyName: ''
     });
   };
 
@@ -373,6 +387,25 @@ const Settings = ({ user, onLogout }) => {
                     return (
                       <option key={role.roleId || role.id} value={role.roleId || role.id}>
                         {role.roleName || role.name}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="companyName">Company <span className="required-asterisk">*</span></label>
+                <select
+                  id="companyName"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option key="default" value="">Select a company</option>
+                  {companies.map((company) => {
+                    return (
+                      <option key={company.id} value={company.id}>
+                        {company.companyName}
                       </option>
                     );
                   })}
