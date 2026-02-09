@@ -8,11 +8,14 @@ import './Settings.css';
 const Settings = ({ user, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [companyError, setCompanyError] = useState('');
+  const [companyLoading, setCompanyLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -23,6 +26,12 @@ const Settings = ({ user, onLogout }) => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
+  });
+  const [companyData, setCompanyData] = useState({
+    companyName: '',
+    email: '',
+    phone: '',
+    website: ''
   });
   const navigate = useNavigate();
   const { showNotification } = useNotification();
@@ -52,6 +61,14 @@ const Settings = ({ user, onLogout }) => {
   const handlePasswordInputChange = (e) => {
     const { name, value } = e.target;
     setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleCompanyInputChange = (e) => {
+    const { name, value } = e.target;
+    setCompanyData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -164,6 +181,97 @@ const Settings = ({ user, onLogout }) => {
     setIsPasswordModalOpen(true);
   };
 
+  const handleAddCompany = () => {
+    setIsAddCompanyModalOpen(true);
+  };
+
+  const handleUpdateCompany = () => {
+    navigate('/settings/update-company');
+  };
+
+  const handleCloseCompanyModal = () => {
+    setIsAddCompanyModalOpen(false);
+    setCompanyError('');
+    setCompanyData({
+      companyName: '',
+      email: '',
+      phone: '',
+      website: ''
+    });
+  };
+
+  const handleCompanySubmit = async (e) => {
+    e.preventDefault();
+    setCompanyLoading(true);
+    setCompanyError('');
+    
+    // Validate required fields
+    if (!companyData.companyName.trim()) {
+      setCompanyError('Company Name is required');
+      setCompanyLoading(false);
+      return;
+    }
+    if (!companyData.email.trim()) {
+      setCompanyError('Email is required');
+      setCompanyLoading(false);
+      return;
+    }
+    if (!companyData.phone.trim()) {
+      setCompanyError('Phone is required');
+      setCompanyLoading(false);
+      return;
+    }
+    if (!companyData.website.trim()) {
+      setCompanyError('Website is required');
+      setCompanyLoading(false);
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /\S+@\S+\.\S+/;
+    if (!emailRegex.test(companyData.email)) {
+      setCompanyError('Please enter a valid email address');
+      setCompanyLoading(false);
+      return;
+    }
+    
+    // Validate phone length
+    if (companyData.phone.length > 20) {
+      setCompanyError('Phone number must not exceed 20 characters');
+      setCompanyLoading(false);
+      return;
+    }
+    
+    // Validate website format
+    const websiteRegex = /^https?:\/\/(localhost(:\d+)?|.+\..+)/;
+    if (!websiteRegex.test(companyData.website)) {
+      setCompanyError('Please enter a valid website URL (starting with http:// or https://)');
+      setCompanyLoading(false);
+      return;
+    }
+    
+    try {
+      const companyPayload = {
+        companyName: companyData.companyName,
+        email: companyData.email,
+        phone: companyData.phone,
+        website: companyData.website
+      };
+      
+      await apiService.createCompany(companyPayload);
+      
+      // Show success notification
+      showNotification('Company added successfully!', 'success');
+      
+      // Reset form and close modal on success
+      handleCloseCompanyModal();
+    } catch (error) {
+      setCompanyError(error.message || 'Failed to add company. Please try again.');
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
+
   return (
     <div style={{ marginLeft: '250px', minHeight: '100vh', width: 'calc(100% - 250px)', background: '#f5f7fa' }}>
       <Header user={user} onLogout={onLogout} />
@@ -194,6 +302,22 @@ const Settings = ({ user, onLogout }) => {
           onClick={handleChangePassword}
         >
           Change Password
+        </button>
+        
+        <button 
+          className="btn btn-settings" 
+          style={{ marginTop: '12px' }}
+          onClick={handleAddCompany}
+        >
+          Add Company
+        </button>
+        
+        <button 
+          className="btn btn-settings" 
+          style={{ marginTop: '12px' }}
+          onClick={handleUpdateCompany}
+        >
+          Update Company
         </button>
       </div>
 
@@ -333,6 +457,87 @@ const Settings = ({ user, onLogout }) => {
                 </button>
                 <button type="submit" className="btn btn-settings" disabled={passwordLoading}>
                   {passwordLoading ? 'Changing Password...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Company Modal */}
+      {isAddCompanyModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add Company</h2>
+              <button className="modal-close" onClick={handleCloseCompanyModal}>
+                ×
+              </button>
+            </div>
+            {companyError && (
+              <div className="error-message" style={{ margin: '0 24px 20px', padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '6px', fontSize: '14px' }}>
+                {companyError}
+              </div>
+            )}
+            <form onSubmit={handleCompanySubmit}>
+              <div className="form-group">
+                <label htmlFor="companyName">Company Name <span className="required-asterisk">*</span></label>
+                <input
+                  type="text"
+                  id="companyName"
+                  name="companyName"
+                  value={companyData.companyName}
+                  onChange={handleCompanyInputChange}
+                  placeholder="Enter company name"
+                  maxLength={255}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="email">Email <span className="required-asterisk">*</span></label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={companyData.email}
+                  onChange={handleCompanyInputChange}
+                  placeholder="Enter email address"
+                  maxLength={255}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="phone">Phone <span className="required-asterisk">*</span></label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={companyData.phone}
+                  onChange={handleCompanyInputChange}
+                  placeholder="Enter phone number"
+                  maxLength={20}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="website">Website <span className="required-asterisk">*</span></label>
+                <input
+                  type="url"
+                  id="website"
+                  name="website"
+                  value={companyData.website}
+                  onChange={handleCompanyInputChange}
+                  placeholder="https://example.com"
+                  maxLength={500}
+                  required
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-cancel" onClick={handleCloseCompanyModal} disabled={companyLoading}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-settings" disabled={companyLoading}>
+                  {companyLoading ? 'Adding Company...' : 'Add Company'}
                 </button>
               </div>
             </form>
