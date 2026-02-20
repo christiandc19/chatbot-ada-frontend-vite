@@ -189,6 +189,57 @@ async login(email, password) {
     return this._readJsonOrSuccess(response, "Company updated successfully");
   }
 
+  async getConversations() {
+    const response = await fetch(`${API_BASE_URL}/conversations`);
+    if (!response.ok) throw new Error("Failed to fetch conversations");
+    return response.json();
+  }
+
+  async getLeads() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/leads`);
+      
+      if (!response.ok) {
+        const errorText = await this._readError(response, `HTTP ${response.status}: Failed to fetch leads`);
+        console.error('API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          errorText
+        });
+        throw new Error(errorText);
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('getLeads failed:', error);
+      throw error;
+    }
+  }
+
+  async getConversationsByLead(leadId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/Leads/${leadId}/conversations`);
+      
+      if (!response.ok) {
+        const errorText = await this._readError(response, `HTTP ${response.status}: Failed to fetch conversations for lead ${leadId}`);
+        console.error('API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          leadId,
+          errorText
+        });
+        throw new Error(errorText);
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('getConversationsByLead failed:', error);
+      throw error;
+    }
+  }
+
   async _readJsonOrSuccess(response, msg) {
     const len = response.headers.get("content-length");
     if (!len || len === "0") return { success: true, message: msg };
