@@ -1,0 +1,11 @@
+/* Extra styles for clickable lead names */
+.lead-name.clickable {
+  color: #3b82f6;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.lead-name.clickable:hover {
+  text-decoration: underline;
+  color: #2563eb;
+}

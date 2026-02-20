@@ -7,6 +7,7 @@ import Login from './components/Login';
 import ResetPassword from './components/ResetPassword';
 import Sidebar from './components/Sidebar';
 import Conversations from './components/Conversations';
+import ChatHistory from './components/ChatHistory';
 import Stats from './components/Stats';
 import Communities from './components/Communities';
 import Settings from './components/Settings';
@@ -77,6 +78,7 @@ function App() {
                       <Route path="/" element={<Navigate to="/conversations" replace />} />
                       <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
                       <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
+                      <Route path="/conversations/:leadId" element={<ChatHistory user={user} onLogout={handleLogout} />} />
                       <Route path="/communities" element={<Communities user={user} onLogout={handleLogout} />} />
                       <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
                       <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
