@@ -13,11 +13,13 @@ const UpdateUser = ({ user, onLogout }) => {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [roles, setRoles] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [formLoading, setFormLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     role: '',
+    companyName: '',
     email: '',
     isActive: true
   });
@@ -28,12 +30,14 @@ const UpdateUser = ({ user, onLogout }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [usersData, rolesData] = await Promise.all([
+        const [usersData, rolesData, companiesData] = await Promise.all([
           apiService.getUsers(),
-          apiService.getRolesForSettings()
+          apiService.getRolesForSettings(),
+          apiService.getCompanies()
         ]);
         setUsers(usersData);
         setRoles(rolesData);
+        setCompanies(companiesData);
       } catch (error) {
         setError('Failed to load data. Please refresh the page or try again later.');
       } finally {
@@ -54,6 +58,7 @@ const UpdateUser = ({ user, onLogout }) => {
       firstName: userToUpdate.firstName || '',
       lastName: userToUpdate.lastName || '',
       role: userToUpdate.roleId?.toString() || '',
+      companyName: userToUpdate.companyId?.toString() || '',
       email: userToUpdate.email || '',
       isActive: userToUpdate.isActive !== undefined ? userToUpdate.isActive : true
     });
@@ -68,6 +73,7 @@ const UpdateUser = ({ user, onLogout }) => {
       firstName: '',
       lastName: '',
       role: '',
+      companyName: '',
       email: '',
       isActive: true
     });
@@ -91,12 +97,18 @@ const UpdateUser = ({ user, onLogout }) => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         roleId: formData.role && !isNaN(formData.role) ? parseInt(formData.role) : null,
+        companyId: formData.companyName && !isNaN(formData.companyName) ? parseInt(formData.companyName) : null,
         email: formData.email,
         isActive: formData.isActive
       };
       
       if (!userData.roleId) {
         setError('Please select a valid role');
+        return;
+      }
+      
+      if (!userData.companyId) {
+        setError('Please select a valid company');
         return;
       }
       
@@ -116,6 +128,7 @@ const UpdateUser = ({ user, onLogout }) => {
         firstName: '',
         lastName: '',
         role: '',
+        companyName: '',
         email: '',
         isActive: true
       });
@@ -226,10 +239,11 @@ const UpdateUser = ({ user, onLogout }) => {
                       </td>
                       <td className="users-table-cell">
                         <button
-                          className="btn btn-settings update-button"
+                          className="btn btn-update-action"
                           onClick={() => handleUpdateUser(userItem)}
+                          title="Edit User"
                         >
-                          Update
+                          ✏️
                         </button>
                       </td>
                     </tr>
@@ -293,6 +307,25 @@ const UpdateUser = ({ user, onLogout }) => {
                     return (
                       <option key={role.roleId || role.id} value={role.roleId || role.id}>
                         {role.roleName || role.name}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="updateCompany">Company <span className="required-asterisk">*</span></label>
+                <select
+                  id="updateCompany"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option key="default" value="">Select a company</option>
+                  {companies.map((company) => {
+                    return (
+                      <option key={company.companyId || company.id} value={company.companyId || company.id}>
+                        {company.companyName || company.name}
                       </option>
                     );
                   })}

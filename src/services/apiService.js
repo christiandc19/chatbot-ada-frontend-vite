@@ -43,6 +43,7 @@ async login(email, password) {
       FirstName: userData.firstName,
       LastName: userData.lastName,
       RoleId: userData.roleId,
+      CompanyId: userData.companyId,
       IsActive: true,
     };
 
@@ -62,6 +63,7 @@ async login(email, password) {
       FirstName: userData.firstName,
       LastName: userData.lastName,
       RoleId: userData.roleId,
+      CompanyId: userData.companyId,
       IsActive: userData.isActive ?? true,
     };
 
@@ -99,6 +101,143 @@ async login(email, password) {
 
     if (!response.ok) throw new Error(await this._readError(response, "Reset password failed"));
     return this._readJsonOrSuccess(response, "Reset password email sent");
+  }
+
+  async createCommunity(communityData) {
+    const payload = {
+      Email: communityData.email,
+      Phone: communityData.phone,
+      UrlAddress: communityData.urlAddress,
+      CompanyId: communityData.companyId
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Communities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to create community"));
+    return this._readJsonOrSuccess(response, "Community created successfully");
+  }
+
+  async getCommunities() {
+    const response = await fetch(`${API_BASE_URL}/Communities`);
+    if (!response.ok) throw new Error("Failed to fetch communities");
+    return response.json();
+  }
+
+  async updateCommunity(communityData) {
+    const payload = {
+      Id: communityData.id,
+      Email: communityData.email,
+      Phone: communityData.phone,
+      UrlAddress: communityData.urlAddress,
+      CompanyId: communityData.companyId
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Communities/${communityData.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to update community"));
+    return this._readJsonOrSuccess(response, "Community updated successfully");
+  }
+
+  async createCompany(companyData) {
+    const payload = {
+      CompanyName: companyData.companyName,
+      Email: companyData.email,
+      Phone: companyData.phone,
+      UrlAddress: companyData.website
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Companies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to create company"));
+    return this._readJsonOrSuccess(response, "Company created successfully");
+  }
+
+  async getCompanies() {
+    const response = await fetch(`${API_BASE_URL}/Companies`);
+    if (!response.ok) throw new Error("Failed to fetch companies");
+    return response.json();
+  }
+
+  async updateCompany(companyData) {
+    const payload = {
+      Id: companyData.id,
+      CompanyName: companyData.companyName,
+      Email: companyData.email,
+      Phone: companyData.phone,
+      UrlAddress: companyData.urlAddress
+    };
+
+    const response = await fetch(`${API_BASE_URL}/Companies/${companyData.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(await this._readError(response, "Failed to update company"));
+    return this._readJsonOrSuccess(response, "Company updated successfully");
+  }
+
+  async getConversations() {
+    const response = await fetch(`${API_BASE_URL}/conversations`);
+    if (!response.ok) throw new Error("Failed to fetch conversations");
+    return response.json();
+  }
+
+  async getLeads() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/leads`);
+      
+      if (!response.ok) {
+        const errorText = await this._readError(response, `HTTP ${response.status}: Failed to fetch leads`);
+        console.error('API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          errorText
+        });
+        throw new Error(errorText);
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('getLeads failed:', error);
+      throw error;
+    }
+  }
+
+  async getConversationsByLead(leadId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/Leads/${leadId}/conversations`);
+      
+      if (!response.ok) {
+        const errorText = await this._readError(response, `HTTP ${response.status}: Failed to fetch conversations for lead ${leadId}`);
+        console.error('API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          leadId,
+          errorText
+        });
+        throw new Error(errorText);
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('getConversationsByLead failed:', error);
+      throw error;
+    }
   }
 
   async _readJsonOrSuccess(response, msg) {
