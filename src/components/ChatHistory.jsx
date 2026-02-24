@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import './ChatHistory.css';
 import Header from './Header';
 import apiService from '../services/apiService';
+import { formatLocalTime } from '../utils/dateUtils';
 
 const ChatHistory = ({ user, onLogout }) => {
   const { leadId } = useParams();
@@ -122,14 +123,9 @@ const ChatHistory = ({ user, onLogout }) => {
     }
   };
 
+  // Use the utility function for consistent time formatting
   const formatTime = (timestamp) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+    return formatLocalTime(timestamp);
   };
 
   const formatMessageText = (text) => {

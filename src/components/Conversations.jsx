@@ -4,6 +4,7 @@ import './Conversations.css';
 import './ConversationsExtra.css';
 import Header from './Header';
 import apiService from '../services/apiService';
+import { formatLocalDate, formatLocalTime } from '../utils/dateUtils';
 
 const Conversations = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -13,13 +14,33 @@ const Conversations = ({ user, onLogout }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchConversations = async () => {
+    const fetchConversations = async (isPolling = false) => {
       try {
-        setLoading(true);
+        // Only show loading spinner on initial load, not during polling
+        if (!isPolling) {
+          setLoading(true);
+        }
+        
         console.log('Fetching leads from API...');
         const data = await apiService.getLeads();
         console.log('Leads data received:', data);
-        setConversations(data);
+        
+        // Only update conversations if there are changes to prevent unnecessary re-renders
+        setConversations(prevConversations => {
+          const prevIds = Array.isArray(prevConversations) 
+            ? prevConversations.map(c => c.id).sort().join(',') 
+            : '';
+          const newIds = Array.isArray(data) 
+            ? data.map(c => c.id).sort().join(',') 
+            : '';
+          
+          // Only update if conversations actually changed
+          if (prevIds !== newIds) {
+            return data;
+          }
+          return prevConversations;
+        });
+        
         setError(null);
       } catch (err) {
         console.error('Error fetching conversations:', err);
@@ -41,11 +62,25 @@ const Conversations = ({ user, onLogout }) => {
         
         setError(errorMessage);
       } finally {
-        setLoading(false);
+        // Only set loading to false on initial load
+        if (!isPolling) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchConversations();
+    // Initial fetch
+    fetchConversations(false);
+    
+    // Set up polling every 5 seconds for real-time updates
+    const pollingInterval = setInterval(() => {
+      fetchConversations(true); // Pass true for polling calls
+    }, 5000); // 5 seconds
+    
+    // Cleanup interval on component unmount
+    return () => {
+      clearInterval(pollingInterval);
+    };
   }, []);
 
   const filteredConversations = Array.isArray(conversations) ? conversations.filter(conv => {
@@ -186,8 +221,8 @@ const Conversations = ({ user, onLogout }) => {
                           </span>
                         </td>
                         <td className="created-cell">
-                          <span className="created-date">{conv.created?.date || (conv.createdAt ? new Date(conv.createdAt).toLocaleDateString() : 'N/A')}</span>
-                          <span className="created-time">{conv.created?.time || (conv.createdAt ? new Date(conv.createdAt).toLocaleTimeString() : 'N/A')}</span>
+                          <span className="created-date">{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
+                          <span className="created-time">{conv.created?.time || formatLocalTime(conv.createdAt)}</span>
                         </td>
                       </tr>
                     );

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../contexts/NotificationContext';
 import Header from './Header';
 import apiService from '../services/apiService';
+import { formatLocalDateTime } from '../utils/dateUtils';
 import './Communities.css';
 import './UpdateCommunity.css';
 
@@ -213,7 +214,7 @@ const UpdateCompany = ({ user, onLogout }) => {
                         {company.urlAddress}
                       </a>
                     </td>
-                    <td>{new Date(company.createdAt).toLocaleDateString()}</td>
+                    <td>{formatLocalDateTime(company.createdAt)}</td>
                     <td>
                       <button
                         onClick={() => handleUpdateClick(company)}
