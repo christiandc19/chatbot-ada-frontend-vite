@@ -179,14 +179,13 @@ const ChatHistory = ({ user, onLogout }) => {
                 </div>
               ) : (
                 messages.map((message, index) => {
-                  // Determine if message is from bot based on content patterns
-                  const messageText = message.message || message.content || message.text || '';
-                  const isBot = messageText.includes('How can I help') || 
-                               messageText.includes('BOT') ||
-                               message.sender === 'BOT' || 
-                               message.sender === 'bot' || 
-                               message.isBot || 
-                               message.type === 'bot';
+                  // Log the full message structure to debug API response
+                  console.log(`Message ${index}:`, message);
+                  
+                  // Check sender field from Conversations table (should be 'bot' or 'user')
+                  const isBot = message.sender === 'bot';
+                  
+                  console.log(`Message ${index} - Sender: "${message.sender}", IsBot: ${isBot}`);
                   
                   const senderName = isBot ? 'BOT' : leadName;
                   
