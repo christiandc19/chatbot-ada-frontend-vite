@@ -1,7 +1,8 @@
 // src/services/apiService.js
 
-// In dev, Vite proxy handles routing to backend
-const API_BASE_URL = "http://localhost:5297/api";
+// In dev (vite dev): VITE_API_BASE_URL=/api — Vite proxy routes /api → http://localhost:5297
+// In production (vite build): VITE_API_BASE_URL=https://api.websmartassistant.com/api
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 // API Keys for authentication
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "dev-admin-key-12345";
