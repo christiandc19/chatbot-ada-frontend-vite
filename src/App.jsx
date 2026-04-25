@@ -14,6 +14,20 @@ import Settings from './components/Settings';
 import UpdateUser from './components/UpdateUser';
 import UpdateCommunity from './components/UpdateCommunity';
 import UpdateCompany from './components/UpdateCompany';
+import { useLocation } from 'react-router-dom';
+import { trackPageView } from './utils/analytics';
+
+
+function AnalyticsTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location]);
+
+  return null;
+}
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -59,6 +73,9 @@ function App() {
       <div className="App">
         <Notification />
         <Router>
+
+          <AnalyticsTracker />
+
           <Routes>
             <Route path="/login" element={
               isLoading ? <div>Loading...</div> : 

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import workingPersonImage from "../assets/images/working-person.png";
 import apiService from "../services/apiService";
+import { trackEvent } from "../utils/analytics";
 
 const Login = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState("");
@@ -12,23 +13,29 @@ const Login = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
 
   const handleForgotPassword = () => {
-    navigate('/resetpassword');
+    trackEvent("Auth", "Forgot Password Click", "Login page");
+    navigate("/resetpassword");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     setLoading(true);
 
     try {
       const response = await apiService.login(email, password);
-      console.log("Login successful:", response);
-      // Pass user data to parent component
+
+      trackEvent("Auth", "Login Success", "User logged in");
+
       if (onLoginSuccess) {
         onLoginSuccess(response);
       }
     } catch (err) {
       setError(err.message || "Login failed. Please try again.");
+
+      trackEvent("Auth", "Login Failed", "Invalid login attempt");
+
       console.error("Login error:", err);
     } finally {
       setLoading(false);
@@ -78,7 +85,11 @@ const Login = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          <button type="button" className="forgot-password" onClick={handleForgotPassword}>
+          <button
+            type="button"
+            className="forgot-password"
+            onClick={handleForgotPassword}
+          >
             Forgot Password
           </button>
         </div>

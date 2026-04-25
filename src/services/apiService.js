@@ -37,6 +37,16 @@ async login(email, password) {
     return response.json();
   }
 
+  async getAnalyticsTraffic() {
+  const response = await fetch(`${API_BASE_URL}/analytics/traffic`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch analytics traffic");
+  }
+
+  return response.json();
+}
+
   async createUser(userData) {
     const payload = {
       Email: userData.email,
