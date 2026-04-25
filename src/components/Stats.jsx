@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Header from "./Header";
+// 🔥 NEW: Import GA4 API
+import { getAnalyticsTraffic } from "../services/analyticsService";
 import apiService from "../services/apiService";
 import {
   Line,
@@ -24,94 +26,104 @@ const Stats = ({ user, onLogout }) => {
   const [selectedCommunity, setSelectedCommunity] = useState("all");
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
+  // 🔥 NEW: GA4 analytics state
+  const [gaData, setGaData] = useState(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
+useEffect(() => {
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
 
-        const leads = await apiService.getLeads();
+      // 🔥 EXISTING: Leads data
+      const leads = await apiService.getLeads();
 
-        const uniqueCommunities = [
-          ...new Set(
-            leads.map(
-              (lead) => lead.communityName || lead.community || "Unknown"
-            )
-          ),
-        ];
+      // 🔥 NEW: Fetch GA4 data
+      const ga = await getAnalyticsTraffic();
+      setGaData(ga);
 
-        setCommunities(uniqueCommunities);
+      const uniqueCommunities = [
+        ...new Set(
+          leads.map(
+            (lead) => lead.communityName || lead.community || "Unknown"
+          )
+        ),
+      ];
 
-        const filteredLeads =
-          selectedCommunity === "all"
-            ? leads
-            : leads.filter(
-                (lead) =>
-                  (lead.communityName || lead.community || "Unknown") ===
-                  selectedCommunity
-              );
+      setCommunities(uniqueCommunities);
 
-        setTotalLeads(filteredLeads.length);
+      const filteredLeads =
+        selectedCommunity === "all"
+          ? leads
+          : leads.filter(
+              (lead) =>
+                (lead.communityName || lead.community || "Unknown") ===
+                selectedCommunity
+            );
 
-        const today = new Date();
-        const todayKey = today.toISOString().split("T")[0];
+      setTotalLeads(filteredLeads.length);
 
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
-        oneWeekAgo.setHours(0, 0, 0, 0);
+      const today = new Date();
+      const todayKey = today.toISOString().split("T")[0];
 
-        let todayCount = 0;
-        let weekCount = 0;
-        const grouped = {};
-        const sourceMap = {};
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
+      oneWeekAgo.setHours(0, 0, 0, 0);
 
-        filteredLeads.forEach((lead) => {
-          if (!lead.createdAt) return;
+      let todayCount = 0;
+      let weekCount = 0;
+      const grouped = {};
+      const sourceMap = {};
 
-          const dateObj = new Date(lead.createdAt);
-          const dateKey = dateObj.toISOString().split("T")[0];
+      filteredLeads.forEach((lead) => {
+        if (!lead.createdAt) return;
 
-          grouped[dateKey] = (grouped[dateKey] || 0) + 1;
+        const dateObj = new Date(lead.createdAt);
+        const dateKey = dateObj.toISOString().split("T")[0];
 
-          const source = lead.source || "Chatbot";
-          sourceMap[source] = (sourceMap[source] || 0) + 1;
+        grouped[dateKey] = (grouped[dateKey] || 0) + 1;
 
-          if (dateKey === todayKey) todayCount++;
-          if (dateObj >= oneWeekAgo) weekCount++;
-        });
+        const source = lead.source || "Chatbot";
+        sourceMap[source] = (sourceMap[source] || 0) + 1;
 
-        setTodayLeads(todayCount);
-        setWeekLeads(weekCount);
+        if (dateKey === todayKey) todayCount++;
+        if (dateObj >= oneWeekAgo) weekCount++;
+      });
 
-        const chartData = Object.keys(grouped)
-          .sort()
-          .map((key) => ({
-            date: new Date(key).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-            leads: grouped[key],
-            interactions: grouped[key] * 3,
-            visitors: grouped[key] * 20,
-          }));
+      setTodayLeads(todayCount);
+      setWeekLeads(weekCount);
 
-        setLeadTrendData(chartData);
+      const chartData = Object.keys(grouped)
+        .sort()
+        .map((key) => ({
+          date: new Date(key).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          leads: grouped[key],
 
-        const pieData = Object.keys(sourceMap).map((key) => ({
-          name: key,
-          value: sourceMap[key],
+          // 🔥 UPDATED: Replace fake calculations with GA data fallback
+          interactions: grouped[key] * 3,
+          visitors: ga?.totals?.activeUsers || 0,
         }));
 
-        setSourceData(pieData);
-      } catch (err) {
-        console.error("Error loading stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setLeadTrendData(chartData);
 
-    fetchStats();
-  }, [selectedCommunity]);
+      const pieData = Object.keys(sourceMap).map((key) => ({
+        name: key,
+        value: sourceMap[key],
+      }));
+
+      setSourceData(pieData);
+    } catch (err) {
+      console.error("Error loading stats:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchStats();
+}, [selectedCommunity]);
+
 
   return (
     <div style={pageWrapper}>
@@ -177,12 +189,12 @@ const Stats = ({ user, onLogout }) => {
             <div style={kpiRow}>
               <Metric
                 label="Visitors"
-                value={totalLeads * 20 || 0}
-                subtext="Estimated until GA4 is connected"
+                value={gaData?.totals?.activeUsers || 0} // 🔥 REAL GA4 DATA
+                subtext="Live from Google Analytics"
               />
               <Metric
                 label="Interactions"
-                value={totalLeads * 3 || 0}
+                value={totalLeads * 3 || 0} // (still estimated)
                 subtext="Estimated chatbot activity"
               />
               <Metric
