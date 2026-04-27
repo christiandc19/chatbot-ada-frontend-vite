@@ -76,38 +76,23 @@ function App() {
 
           <AnalyticsTracker />
 
-          <Routes>
-            <Route path="/login" element={
-              isLoading ? <div>Loading...</div> : 
-              user ? <Navigate to="/conversations" replace /> : 
-              <Login onLoginSuccess={handleLoginSuccess} />
-            } />
-            <Route path="/resetpassword" element={
-              <ResetPassword />
-            } />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <div style={{ display: 'flex' }}>
-                    <Sidebar onLogout={handleLogout} />
-                    <Routes>
-                      <Route path="/" element={<Navigate to="/conversations" replace />} />
-                      <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
-                      <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
-                      <Route path="/conversations/:leadId" element={<ChatHistory user={user} onLogout={handleLogout} />} />
-                      <Route path="/communities" element={<Communities user={user} onLogout={handleLogout} />} />
-                      <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
-                      <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
-                      <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
-                      <Route path="/settings/update-company" element={<UpdateCompany user={user} onLogout={handleLogout} />} />
-                    </Routes>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Router>
+<div className="dashboard-layout">
+  <Sidebar onLogout={handleLogout} />
+
+  <main className="dashboard-content">
+    <Routes>
+      <Route path="/" element={<Navigate to="/conversations" replace />} />
+      <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
+      <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
+      <Route path="/conversations/:leadId" element={<ChatHistory user={user} onLogout={handleLogout} />} />
+      <Route path="/communities" element={<Communities user={user} onLogout={handleLogout} />} />
+      <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
+      <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
+      <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
+      <Route path="/settings/update-company" element={<UpdateCompany user={user} onLogout={handleLogout} />} />
+    </Routes>
+  </main>
+</div>        </Router>
       </div>
     </NotificationProvider>
   );
