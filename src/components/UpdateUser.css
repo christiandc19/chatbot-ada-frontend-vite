@@ -42,9 +42,8 @@
 
 /* Layout Classes */
 .update-user-container {
-  margin-left: 250px;
   min-height: 100vh;
-  width: calc(100% - 250px);
+  width: 100%;
   background: #f5f7fa;
 }
 
