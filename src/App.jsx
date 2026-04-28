@@ -54,7 +54,8 @@ function App() {
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    localStorage.removeItem("user");
+    sessionStorage.clear();
   };
 
   // Protected Route wrapper
@@ -72,28 +73,40 @@ function App() {
     <NotificationProvider>
       <div className="App">
         <Notification />
-        <Router>
+<Router>
+  <AnalyticsTracker />
 
-          <AnalyticsTracker />
-
-<div className="dashboard-layout">
-  <Sidebar onLogout={handleLogout} />
-
-  <main className="dashboard-content">
+  {!user ? (
     <Routes>
-      <Route path="/" element={<Navigate to="/conversations" replace />} />
-      <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
-      <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
-      <Route path="/conversations/:leadId" element={<ChatHistory user={user} onLogout={handleLogout} />} />
-      <Route path="/communities" element={<Communities user={user} onLogout={handleLogout} />} />
-      <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
-      <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
-      <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
-      <Route path="/settings/update-company" element={<UpdateCompany user={user} onLogout={handleLogout} />} />
+      <Route
+        path="/login"
+        element={<Login onLoginSuccess={handleLoginSuccess} />}
+      />
+      <Route path="/resetpassword" element={<ResetPassword />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
-  </main>
-</div>        </Router>
-      </div>
+  ) : (
+    <div className="dashboard-layout">
+      <Sidebar onLogout={handleLogout} />
+
+      <main className="dashboard-content">
+        <Routes>
+          <Route path="/" element={<Navigate to="/conversations" replace />} />
+          <Route path="/login" element={<Navigate to="/conversations" replace />} />
+          <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
+          <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
+          <Route path="/conversations/:leadId" element={<ChatHistory user={user} onLogout={handleLogout} />} />
+          <Route path="/communities" element={<Communities user={user} onLogout={handleLogout} />} />
+          <Route path="/communities/update-community" element={<UpdateCommunity user={user} onLogout={handleLogout} />} />
+          <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
+          <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
+          <Route path="/settings/update-company" element={<UpdateCompany user={user} onLogout={handleLogout} />} />
+          <Route path="*" element={<Navigate to="/conversations" replace />} />
+        </Routes>
+      </main>
+    </div>
+  )}
+</Router>      </div>
     </NotificationProvider>
   );
 }

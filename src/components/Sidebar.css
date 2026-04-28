@@ -55,27 +55,51 @@
   padding: 0;
 }
 
-.sidebar-menu a,
-.logout-button {
+/* ✅ Sidebar links only */
+.sidebar-menu a {
   width: 100%;
   display: flex;
   align-items: center;
 
   padding: 14px 24px;
   background: transparent;
-  border: none;
 
   color: #cbd5e1;
   font-size: 15px;
   text-decoration: none;
-  text-align: left;
 
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+/* ✅ Logout button separated so global button styles don't break it */
+.sidebar .logout-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+
+  padding: 14px 24px;
+  background: transparent;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+
+  color: #cbd5e1;
+  font-size: 15px;
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
+}
+
 .sidebar-menu a:hover,
-.logout-button:hover {
+.sidebar .logout-button:hover {
   background: rgba(56, 189, 248, 0.1);
   color: #ffffff;
 }
@@ -167,7 +191,7 @@
   }
 
   .sidebar-menu a,
-  .logout-button {
+  .sidebar .logout-button {
     padding: 13px 14px;
     border-radius: 10px;
   }

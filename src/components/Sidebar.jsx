@@ -19,9 +19,24 @@ const Sidebar = ({ onLogout }) => {
   const handleLogout = () => {
     trackEvent("Auth", "Logout", "User logged out");
 
-    if (onLogout) onLogout();
+    // ✅ Clear saved login/auth data
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("isAuthenticated");
 
-    navigate("/login");
+    sessionStorage.clear();
+
+    // ✅ Update parent login state
+    if (onLogout) {
+      onLogout();
+    }
+
+    // ✅ Close mobile menu after logout
+    setIsOpen(false);
+
+    // ✅ Send user back to login page
+    navigate("/login", { replace: true });
   };
 
   const handleMenuClick = (label) => {
@@ -62,7 +77,7 @@ const Sidebar = ({ onLogout }) => {
         </ul>
 
         <div className="sidebar-footer">
-          <button onClick={handleLogout} className="logout-button">
+          <button type="button" onClick={handleLogout} className="logout-button">
             <span className="sidebar-menu-icon">🚪</span>
             Logout
           </button>

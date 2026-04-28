@@ -64,22 +64,34 @@
 
 .controls-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
-/* Buttons */
-.btn {
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 10px;
-  border: none;
-  font-weight: 700;
-  cursor: pointer;
-}
-
+/* Desktop */
 .btn-download {
   background: #38bdf8;
+  color: #ffffff;
+  min-width: 160px;
+}
+
+.conversations-container .btn-actions {
+  background: #ffffff;
+  border: 1px solid #2e2e2e41;
   color: #0f172a;
+  min-width: 140px;
+}
+
+/* Mobile fix */
+@media (max-width: 700px) {
+  .controls-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-download,
+  .btn-actions {
+    width: 100%;
+  }
 }
 
 .btn-actions,
@@ -232,6 +244,14 @@
   .controls-actions {
     flex-direction: column;
   }
+
+.btn-download {
+  background: #38bdf8;
+  color: #ffffff; /* ✅ white text */
+  border: none;
+  min-width: 160px;
+  font-weight: 700;
+}
 
   .btn {
     width: 100%;
