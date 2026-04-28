@@ -1,13 +1,25 @@
 // src/services/apiService.js
 
-// In dev, Vite proxy handles routing to backend
-const API_BASE_URL = "http://localhost:5297/api";
+// In dev (vite dev): VITE_API_BASE_URL=/api — Vite proxy routes /api → http://localhost:5297
+// In production (vite build): VITE_API_BASE_URL=https://api.websmartassistant.com/api
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
+// API Keys for authentication
+const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "dev-admin-key-12345";
 
 class ApiService {
+
+  // Helper method to build headers with admin authentication
+  _buildAdminHeaders(additionalHeaders = {}) {
+    return {
+      "X-Admin-Api-Key": ADMIN_API_KEY,
+      ...additionalHeaders
+    };
+  }
 async login(email, password) {
   const response = await fetch(`${API_BASE_URL}/users/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ Email: email, Password: password }),
   });
 
@@ -20,19 +32,25 @@ async login(email, password) {
 
 
   async getUsers() {
-    const response = await fetch(`${API_BASE_URL}/users`);
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      headers: this._buildAdminHeaders()
+    });
     if (!response.ok) throw new Error("Failed to fetch users");
     return response.json();
   }
 
   async getRoles() {
-    const response = await fetch(`${API_BASE_URL}/roles`);
+    const response = await fetch(`${API_BASE_URL}/roles`, {
+      headers: this._buildAdminHeaders()
+    });
     if (!response.ok) throw new Error("Failed to fetch roles");
     return response.json();
   }
 
   async getRolesForSettings() {
-    const response = await fetch(`${API_BASE_URL}/roles/frontend`);
+    const response = await fetch(`${API_BASE_URL}/roles/frontend`, {
+      headers: this._buildAdminHeaders()
+    });
     if (!response.ok) throw new Error("Failed to fetch roles for add user");
     return response.json();
   }
@@ -59,7 +77,7 @@ async login(email, password) {
 
     const response = await fetch(`${API_BASE_URL}/Users`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
@@ -79,7 +97,7 @@ async login(email, password) {
 
     const response = await fetch(`${API_BASE_URL}/Users/${userId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
@@ -90,7 +108,7 @@ async login(email, password) {
   async changePassword(userId, data) {
     const response = await fetch(`${API_BASE_URL}/Users/${userId}/change-password`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         CurrentPassword: data.currentPassword,
         NewPassword: data.newPassword,
@@ -105,7 +123,7 @@ async login(email, password) {
   async resetPassword(email) {
     const response = await fetch(`${API_BASE_URL}/Users/reset-password`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ Email: email }),
     });
 
@@ -123,7 +141,7 @@ async login(email, password) {
 
     const response = await fetch(`${API_BASE_URL}/Communities`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
@@ -132,7 +150,9 @@ async login(email, password) {
   }
 
   async getCommunities() {
-    const response = await fetch(`${API_BASE_URL}/Communities`);
+    const response = await fetch(`${API_BASE_URL}/Communities`, {
+      headers: this._buildAdminHeaders()
+    });
     if (!response.ok) throw new Error("Failed to fetch communities");
     return response.json();
   }
@@ -148,7 +168,7 @@ async login(email, password) {
 
     const response = await fetch(`${API_BASE_URL}/Communities/${communityData.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
@@ -166,7 +186,7 @@ async login(email, password) {
 
     const response = await fetch(`${API_BASE_URL}/Companies`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
@@ -175,7 +195,9 @@ async login(email, password) {
   }
 
   async getCompanies() {
-    const response = await fetch(`${API_BASE_URL}/Companies`);
+    const response = await fetch(`${API_BASE_URL}/Companies`, {
+      headers: this._buildAdminHeaders()
+    });
     if (!response.ok) throw new Error("Failed to fetch companies");
     return response.json();
   }
@@ -191,7 +213,7 @@ async login(email, password) {
 
     const response = await fetch(`${API_BASE_URL}/Companies/${companyData.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
@@ -200,14 +222,18 @@ async login(email, password) {
   }
 
   async getConversations() {
-    const response = await fetch(`${API_BASE_URL}/conversations`);
+    const response = await fetch(`${API_BASE_URL}/conversations`, {
+      headers: this._buildAdminHeaders()
+    });
     if (!response.ok) throw new Error("Failed to fetch conversations");
     return response.json();
   }
 
   async getLeads() {
     try {
-      const response = await fetch(`${API_BASE_URL}/leads`);
+      const response = await fetch(`${API_BASE_URL}/leads`, {
+        headers: this._buildAdminHeaders()
+      });
       
       if (!response.ok) {
         const errorText = await this._readError(response, `HTTP ${response.status}: Failed to fetch leads`);
@@ -229,7 +255,9 @@ async login(email, password) {
 
   async getConversationsByLead(leadId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/Leads/${leadId}/conversations`);
+      const response = await fetch(`${API_BASE_URL}/Leads/${leadId}/conversations`, {
+        headers: this._buildAdminHeaders()
+      });
       
       if (!response.ok) {
         const errorText = await this._readError(response, `HTTP ${response.status}: Failed to fetch conversations for lead ${leadId}`);
