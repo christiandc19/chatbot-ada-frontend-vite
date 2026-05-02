@@ -46,16 +46,20 @@
   transition: all 0.2s;
 }
 
-.btn-communities {
-  background: #3b82f6;
-  color: white;
-  width: 12rem;
-  justify-content: center;
+.communities-container .btn-communities {
+  width: 300px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #036aa136;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.btn-communities:hover {
+/* .btn-communities:hover {
   background: #2563eb;
-}
+} */
 
 /* Modal Styles */
 .modal-overlay {
