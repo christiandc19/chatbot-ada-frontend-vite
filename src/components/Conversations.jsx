@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Conversations.css";
-import "./ConversationsExtra.css";
 import Header from "./Header";
 import apiService from "../services/apiService";
 import { formatLocalDate, formatLocalTime } from "../utils/dateUtils";
@@ -175,146 +174,195 @@ const Conversations = ({ user, onLogout }) => {
           </div>
         </div>
 
-        <div className="conversations-table">
-          {loading ? (
-            <div className="loading-state">
-              <p>Loading leads...</p>
-            </div>
-          ) : error ? (
-            <div className="error-state">
-              <p>{error}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="btn btn-retry"
-              >
-                Retry
-              </button>
-            </div>
+<div className="conversations-table">
+  {loading ? (
+    <div className="loading-state">
+      <p>Loading leads...</p>
+    </div>
+  ) : error ? (
+    <div className="error-state">
+      <p>{error}</p>
+      <button onClick={() => window.location.reload()} className="btn btn-retry">
+        Retry
+      </button>
+    </div>
+  ) : (
+    <>
+      <table>
+        <thead>
+          <tr>
+            <th>LEAD</th>
+            <th>CONTACT</th>
+            <th>COMMUNITY</th>
+            <th>SOURCE</th>
+            <th>STATUS</th>
+            <th>CREATED</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {filteredConversations.length === 0 ? (
+            <tr>
+              <td colSpan="6" className="no-data">
+                {searchQuery ? "No leads match your search." : "No leads found."}
+              </td>
+            </tr>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>LEAD</th>
-                  <th>CONTACT</th>
-                  <th>COMMUNITY</th>
-                  <th>SOURCE</th>
-                  <th>STATUS</th>
-                  <th>
-                    CREATED
-                    <span className="filter-icon">⚙️</span>
-                  </th>
+            filteredConversations.map((conv) => {
+              const leadName =
+                `${conv.firstName || ""} ${conv.lastName || ""}`.trim() ||
+                "Unknown";
+
+              const initials =
+                conv.initials ||
+                leadName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase();
+
+              const color =
+                conv.color ||
+                `hsl(${((conv.id || 0) * 137.508) % 360}, 70%, 60%)`;
+
+              const handleLeadClick = () => {
+                trackEvent("Conversations", "Viewed Lead", "Lead opened");
+
+                if (conv.id) {
+                  navigate(`/conversations/${conv.id}`);
+                }
+              };
+
+              return (
+                <tr key={conv.id}>
+                  <td>
+                    <div className="lead-cell">
+                      <div className="lead-avatar" style={{ background: color }}>
+                        {initials}
+                      </div>
+
+                      <span
+                        className="lead-name clickable"
+                        onClick={handleLeadClick}
+                        title="View conversation history"
+                      >
+                        {leadName}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="contact-cell">
+                    <div>{conv.phone || "N/A"}</div>
+                    <div className="contact-email">{conv.email || "N/A"}</div>
+                  </td>
+
+                  <td>{conv.community || "N/A"}</td>
+
+                  <td>
+                    <span className="source-badge">{conv.source || "-"}</span>
+                  </td>
+
+                  <td>
+                    <span className={`status-badge status-${conv.status?.toLowerCase()}`}>
+                      {conv.status || "-"}
+                    </span>
+                  </td>
+
+                  <td className="created-cell">
+                    <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
+                    <span className="created-time">
+                      {conv.created?.time || formatLocalTime(conv.createdAt)}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-
-              <tbody>
-                {filteredConversations.length === 0 && !loading ? (
-                  <tr>
-                    <td colSpan="6" className="no-data">
-                      {searchQuery
-                        ? "No leads match your search."
-                        : "No leads found."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredConversations.map((conv) => {
-                    const leadName =
-                      `${conv.firstName || ""} ${
-                        conv.lastName || ""
-                      }`.trim() || "Unknown";
-
-                    const initials =
-                      conv.initials ||
-                      (leadName
-                        ? leadName
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase()
-                        : "?");
-
-                    const color =
-                      conv.color ||
-                      `hsl(${((conv.id || 0) * 137.508) % 360}, 70%, 60%)`;
-
-                    const handleLeadClick = () => {
-                      trackEvent(
-                        "Conversations",
-                        "Viewed Lead",
-                        "Lead opened"
-                      );
-
-                      if (conv.id) {
-                        navigate(`/conversations/${conv.id}`);
-                      }
-                    };
-
-                    return (
-                      <tr key={conv.id}>
-                        <td>
-                          <div className="lead-cell">
-                            <div
-                              className="lead-avatar"
-                              style={{ background: color }}
-                            >
-                              {initials}
-                            </div>
-
-                            <span
-                              className="lead-name clickable"
-                              onClick={handleLeadClick}
-                              title="View conversation history"
-                            >
-                              {leadName}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="contact-cell">
-                          <div className="contact-phone">
-                            {conv.phone || "N/A"}
-                          </div>
-                          <div className="contact-email">
-                            {conv.email || "N/A"}
-                          </div>
-                        </td>
-
-                        <td>{conv.community}</td>
-
-                        <td>
-                          <span className="source-badge">
-                            - <br />
-                            {conv.source}
-                          </span>
-                        </td>
-
-                        <td>
-                          <span
-                            className={`status-badge status-${conv.status?.toLowerCase()}`}
-                          >
-                            {conv.status}
-                          </span>
-                        </td>
-
-                        <td className="created-cell">
-                          <span className="created-date">
-                            {conv.created?.date ||
-                              formatLocalDate(conv.createdAt)}
-                          </span>
-                          <span className="created-time">
-                            {conv.created?.time ||
-                              formatLocalTime(conv.createdAt)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+              );
+            })
           )}
+        </tbody>
+      </table>
+
+      <div className="mobile-cards">
+        {filteredConversations.map((conv) => {
+          const leadName =
+            `${conv.firstName || ""} ${conv.lastName || ""}`.trim() ||
+            "Unknown";
+
+          const initials =
+            conv.initials ||
+            leadName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase();
+
+          const color =
+            conv.color ||
+            `hsl(${((conv.id || 0) * 137.508) % 360}, 70%, 60%)`;
+
+          const handleLeadClick = () => {
+            trackEvent("Conversations", "Viewed Lead", "Lead opened");
+
+            if (conv.id) {
+              navigate(`/conversations/${conv.id}`);
+            }
+          };
+
+          return (
+            <div key={conv.id} className="conversation-card">
+              <div className="card-header">
+                <div className="lead-avatar" style={{ background: color }}>
+                  {initials}
+                </div>
+
+                <span
+                  className="lead-name clickable"
+                  onClick={handleLeadClick}
+                  title="View conversation history"
+                >
+                  {leadName}
+                </span>
+              </div>
+
+              <div className="card-body">
+                <div>
+                  <span className="card-label">Phone</span>
+                  <span className="card-value">{conv.phone || "N/A"}</span>
+                </div>
+
+                <div>
+                  <span className="card-label">Email</span>
+                  <span className="card-value">{conv.email || "N/A"}</span>
+                </div>
+
+                <div>
+                  <span className="card-label">Community</span>
+                  <span className="card-value">{conv.community || "N/A"}</span>
+                </div>
+
+                <div>
+                  <span className="card-label">Source</span>
+                  <span className="card-value">{conv.source || "-"}</span>
+                </div>
+
+                <div>
+                  <span className="card-label">Status</span>
+                  <span className={`status-badge status-${conv.status?.toLowerCase()}`}>
+                    {conv.status || "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  )}
+</div>
+
+
+
         </div>
       </div>
-    </div>
   );
 };
 

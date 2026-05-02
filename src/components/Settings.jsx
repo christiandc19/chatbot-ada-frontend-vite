@@ -1,55 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useNotification } from '../contexts/NotificationContext';
-import Header from './Header';
-import apiService from '../services/apiService';
-import './Settings.css';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useNotification } from "../contexts/NotificationContext";
+import Header from "./Header";
+import apiService from "../services/apiService";
+import "./Settings.css";
 
 const Settings = ({ user, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
+
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [companyError, setCompanyError] = useState('');
   const [companyLoading, setCompanyLoading] = useState(false);
+
+  const [error, setError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [companyError, setCompanyError] = useState("");
+
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    role: '',
-    email: '',
-    companyName: ''
+    firstName: "",
+    lastName: "",
+    role: "",
+    email: "",
+    companyName: "",
   });
+
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
+
   const [companyData, setCompanyData] = useState({
-    companyName: '',
-    email: '',
-    phone: '',
-    website: ''
+    companyName: "",
+    email: "",
+    phone: "",
+    website: "",
   });
+
   const navigate = useNavigate();
   const { showNotification } = useNotification();
 
-  // Fetch roles and companies when component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [rolesData, companiesData] = await Promise.all([
           apiService.getRolesForSettings(),
-          apiService.getCompanies()
+          apiService.getCompanies(),
         ]);
+
         setRoles(rolesData);
         setCompanies(companiesData);
-      } catch (error) {
-        setError('Failed to load data. Please refresh the page or try again later.');
+      } catch {
+        setError("Failed to load data. Please refresh the page or try again later.");
       }
     };
 
@@ -58,69 +65,98 @@ const Settings = ({ user, onLogout }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePasswordInputChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCompanyInputChange = (e) => {
     const { name, value } = e.target;
-    setCompanyData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setCompanyData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const resetUserForm = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      role: "",
+      email: "",
+      companyName: "",
+    });
+  };
+
+  const resetPasswordForm = () => {
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+  };
+
+  const resetCompanyForm = () => {
+    setCompanyData({
+      companyName: "",
+      email: "",
+      phone: "",
+      website: "",
+    });
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setError("");
+    resetUserForm();
+  };
+
+  const handleClosePasswordModal = () => {
+    setIsPasswordModalOpen(false);
+    setPasswordError("");
+    resetPasswordForm();
+  };
+
+  const handleCloseCompanyModal = () => {
+    setIsAddCompanyModalOpen(false);
+    setCompanyError("");
+    resetCompanyForm();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    
+    setError("");
+
+    const userData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      roleId: formData.role && !isNaN(formData.role) ? parseInt(formData.role) : null,
+      email: formData.email,
+      companyId:
+        formData.companyName && !isNaN(formData.companyName)
+          ? parseInt(formData.companyName)
+          : null,
+    };
+
+    if (!userData.roleId) {
+      setError("Please select a valid role");
+      setLoading(false);
+      return;
+    }
+
+    if (!userData.companyId) {
+      setError("Please select a valid company");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const userData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        roleId: formData.role && !isNaN(formData.role) ? parseInt(formData.role) : null,
-        email: formData.email,
-        companyId: formData.companyName && !isNaN(formData.companyName) ? parseInt(formData.companyName) : null
-      };
-      
-      // Validate that we have a valid roleId and companyId
-      if (!userData.roleId) {
-        setError('Please select a valid role');
-        return;
-      }
-      
-      if (!userData.companyId) {
-        setError('Please select a valid company');
-        return;
-      }
-      
       await apiService.createUser(userData);
-      
-      // Show success notification
-      showNotification('Successfully Saved!', 'success');
-      
-      // Reset form and close modal on success
-      setIsModalOpen(false);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        role: '',
-        email: '',
-        companyName: ''
-      });
+      showNotification("Successfully Saved!", "success");
+      handleCloseModal();
     } catch (error) {
-      setError(error.message || 'Failed to create user. Please try again.');
+      setError(error.message || "Failed to create user. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -129,305 +165,179 @@ const Settings = ({ user, onLogout }) => {
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setPasswordLoading(true);
-    setPasswordError('');
-    
-    // Validate passwords match
+    setPasswordError("");
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError('New passwords do not match');
+      setPasswordError("New passwords do not match");
       setPasswordLoading(false);
       return;
     }
-    
-    // Validate password strength (optional)
+
     if (passwordData.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters long');
+      setPasswordError("New password must be at least 6 characters long");
       setPasswordLoading(false);
       return;
     }
-    
+
     try {
-      // Call API to change password - pass user ID as first parameter
-      await apiService.changePassword(user.id, {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-        confirmPassword: passwordData.confirmPassword
-      });
-      
-      // Show success notification
-      showNotification('Password changed successfully!', 'success');
-      
-      // Reset form and close modal on success
+      await apiService.changePassword(user.id, passwordData);
+      showNotification("Password changed successfully!", "success");
       handleClosePasswordModal();
     } catch (error) {
-      setPasswordError(error.message || 'Failed to change password. Please try again.');
+      setPasswordError(error.message || "Failed to change password. Please try again.");
     } finally {
       setPasswordLoading(false);
     }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setError('');
-    setFormData({
-      firstName: '',
-      lastName: '',
-      role: '',
-      email: '',
-      companyName: ''
-    });
-  };
-
-  const handleClosePasswordModal = () => {
-    setIsPasswordModalOpen(false);
-    setPasswordError('');
-    setPasswordData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    });
-  };
-
-  const handleNavigateToUpdateUser = () => {
-    navigate('/settings/update-user');
-  };
-
-  const handleChangePassword = () => {
-    setIsPasswordModalOpen(true);
-  };
-
-  const handleAddCompany = () => {
-    setIsAddCompanyModalOpen(true);
-  };
-
-  const handleUpdateCompany = () => {
-    navigate('/settings/update-company');
-  };
-
-  const handleCloseCompanyModal = () => {
-    setIsAddCompanyModalOpen(false);
-    setCompanyError('');
-    setCompanyData({
-      companyName: '',
-      email: '',
-      phone: '',
-      website: ''
-    });
-  };
-
   const handleCompanySubmit = async (e) => {
     e.preventDefault();
     setCompanyLoading(true);
-    setCompanyError('');
-    
-    // Validate required fields
+    setCompanyError("");
+
     if (!companyData.companyName.trim()) {
-      setCompanyError('Company Name is required');
+      setCompanyError("Company Name is required");
       setCompanyLoading(false);
       return;
     }
+
     if (!companyData.email.trim()) {
-      setCompanyError('Email is required');
+      setCompanyError("Email is required");
       setCompanyLoading(false);
       return;
     }
+
     if (!companyData.phone.trim()) {
-      setCompanyError('Phone is required');
+      setCompanyError("Phone is required");
       setCompanyLoading(false);
       return;
     }
+
     if (!companyData.website.trim()) {
-      setCompanyError('Website is required');
+      setCompanyError("Website is required");
       setCompanyLoading(false);
       return;
     }
-    
-    // Validate email format
+
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(companyData.email)) {
-      setCompanyError('Please enter a valid email address');
+      setCompanyError("Please enter a valid email address");
       setCompanyLoading(false);
       return;
     }
-    
-    // Validate phone length
-    if (companyData.phone.length > 20) {
-      setCompanyError('Phone number must not exceed 20 characters');
-      setCompanyLoading(false);
-      return;
-    }
-    
-    // Validate website format
+
     const websiteRegex = /^https?:\/\/(localhost(:\d+)?|.+\..+)/;
     if (!websiteRegex.test(companyData.website)) {
-      setCompanyError('Please enter a valid website URL (starting with http:// or https://)');
+      setCompanyError("Please enter a valid website URL starting with http:// or https://");
       setCompanyLoading(false);
       return;
     }
-    
+
     try {
-      const companyPayload = {
-        companyName: companyData.companyName,
-        email: companyData.email,
-        phone: companyData.phone,
-        website: companyData.website
-      };
-      
-      await apiService.createCompany(companyPayload);
-      
-      // Show success notification
-      showNotification('Company added successfully!', 'success');
-      
-      // Reset form and close modal on success
+      await apiService.createCompany(companyData);
+      showNotification("Company added successfully!", "success");
       handleCloseCompanyModal();
     } catch (error) {
-      setCompanyError(error.message || 'Failed to add company. Please try again.');
+      setCompanyError(error.message || "Failed to add company. Please try again.");
     } finally {
       setCompanyLoading(false);
     }
   };
 
   return (
-    <div style={{ marginLeft: '250px', minHeight: '100vh', width: 'calc(100% - 250px)', background: '#f5f7fa' }}>
+    <div className="settings-page">
       <Header user={user} onLogout={onLogout} />
-      <div style={{ padding: '32px' }}>
+
+      <main className="settings-content">
         <div className="page-title-section">
           <div className="page-icon">⚙️</div>
           <h1 className="page-title">Settings</h1>
         </div>
-        <button 
-          className="btn btn-settings" 
-          style={{ marginTop: '20px' }}
-          onClick={() => setIsModalOpen(true)}
-        >
-          Add User
-        </button>
-        
-        <button 
-          className="btn btn-settings" 
-          style={{ marginTop: '12px' }}
-          onClick={handleNavigateToUpdateUser}
-        >
-          Update User
-        </button>
-        
-        <button 
-          className="btn btn-settings" 
-          style={{ marginTop: '12px' }}
-          onClick={handleChangePassword}
-        >
-          Change Password
-        </button>
-        
-        <button 
-          className="btn btn-settings" 
-          style={{ marginTop: '12px' }}
-          onClick={handleAddCompany}
-        >
-          Add Company
-        </button>
-        
-        <button 
-          className="btn btn-settings" 
-          style={{ marginTop: '12px' }}
-          onClick={handleUpdateCompany}
-        >
-          Update Company
-        </button>
-      </div>
 
-      {/* Add User Modal */}
+        <div className="settings-btn">
+          <button className="settings-action settings-action-primary" onClick={() => setIsModalOpen(true)}>
+            Add User
+          </button>
+
+          <button className="settings-action settings-action-primary" onClick={() => navigate("/settings/update-user")}>
+            Update User
+          </button>
+
+          <button className="settings-action settings-action-primary" onClick={() => setIsPasswordModalOpen(true)}>
+            Change Password
+          </button>
+
+          <button className="settings-action settings-action-primary" onClick={() => setIsAddCompanyModalOpen(true)}>
+            Add Company
+          </button>
+
+          <button className="settings-action settings-action-primary" onClick={() => navigate("/settings/update-company")}>
+            Update Company
+          </button>
+        </div>
+      </main>
+
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add User</h2>
-              <button className="modal-close" onClick={handleCloseModal}>
-                ×
-              </button>
+              <div>
+                <p className="modal-eyebrow">User Management</p>
+                <h2>Add User</h2>
+              </div>
+              <button className="modal-close" onClick={handleCloseModal}>×</button>
             </div>
-            {error && (
-              <div className="error-message" style={{ margin: '0 24px 20px', padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '6px', fontSize: '14px' }}>
-                {error}
+
+            {error && <div className="error-message">{error}</div>}
+
+            <form onSubmit={handleSubmit} className="modal-form">
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>First Name <span className="required-asterisk">*</span></label>
+                  <input name="firstName" value={formData.firstName} onChange={handleInputChange} required />
+                </div>
+
+                <div className="form-group">
+                  <label>Last Name <span className="required-asterisk">*</span></label>
+                  <input name="lastName" value={formData.lastName} onChange={handleInputChange} required />
+                </div>
               </div>
-            )}
-            <form onSubmit={handleSubmit}>
+
               <div className="form-group">
-                <label htmlFor="firstName">First Name <span className="required-asterisk">*</span></label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="lastName">Last Name <span className="required-asterisk">*</span></label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="role">Role <span className="required-asterisk">*</span></label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option key="default" value="">Select a role</option>
-                  {roles.map((role) => {
-                    return (
-                      <option key={role.roleId || role.id} value={role.roleId || role.id}>
-                        {role.roleName || role.name}
-                      </option>
-                    );
-                  })}
+                <label>Role <span className="required-asterisk">*</span></label>
+                <select name="role" value={formData.role} onChange={handleInputChange} required>
+                  <option value="">Select a role</option>
+                  {roles.map((role) => (
+                    <option key={role.roleId || role.id} value={role.roleId || role.id}>
+                      {role.roleName || role.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="form-group">
-                <label htmlFor="companyName">Company <span className="required-asterisk">*</span></label>
-                <select
-                  id="companyName"
-                  name="companyName"
-                  value={formData.companyName}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option key="default" value="">Select a company</option>
-                  {companies.map((company) => {
-                    return (
-                      <option key={company.id} value={company.id}>
-                        {company.companyName}
-                      </option>
-                    );
-                  })}
+                <label>Company <span className="required-asterisk">*</span></label>
+                <select name="companyName" value={formData.companyName} onChange={handleInputChange} required>
+                  <option value="">Select a company</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.companyName}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="form-group">
-                <label htmlFor="email">Email Address <span className="required-asterisk">*</span></label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                />
+                <label>Email Address <span className="required-asterisk">*</span></label>
+                <input type="email" name="email" value={formData.email} onChange={handleInputChange} required />
               </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-cancel" onClick={handleCloseModal} disabled={loading}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-settings" disabled={loading}>
-                  {loading ? 'Creating User...' : 'Add User'}
+                  {loading ? "Creating User..." : "Add User"}
                 </button>
               </div>
             </form>
@@ -435,61 +345,38 @@ const Settings = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Change Password Modal */}
       {isPasswordModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleClosePasswordModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Change Password</h2>
-              <button className="modal-close" onClick={handleClosePasswordModal}>
-                ×
-              </button>
+              <button className="modal-close" onClick={handleClosePasswordModal}>×</button>
             </div>
-            {passwordError && (
-              <div className="error-message" style={{ margin: '0 24px 20px', padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '6px', fontSize: '14px' }}>
-                {passwordError}
-              </div>
-            )}
-            <form onSubmit={handlePasswordSubmit}>
+
+            {passwordError && <div className="error-message">{passwordError}</div>}
+
+            <form onSubmit={handlePasswordSubmit} className="modal-form">
               <div className="form-group">
-                <label htmlFor="currentPassword">Current Password <span className="required-asterisk">*</span></label>
-                <input
-                  type="password"
-                  id="currentPassword"
-                  name="currentPassword"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordInputChange}
-                  required
-                />
+                <label>Current Password <span className="required-asterisk">*</span></label>
+                <input type="password" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordInputChange} required />
               </div>
+
               <div className="form-group">
-                <label htmlFor="newPassword">New Password <span className="required-asterisk">*</span></label>
-                <input
-                  type="password"
-                  id="newPassword"
-                  name="newPassword"
-                  value={passwordData.newPassword}
-                  onChange={handlePasswordInputChange}
-                  required
-                />
+                <label>New Password <span className="required-asterisk">*</span></label>
+                <input type="password" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordInputChange} required />
               </div>
+
               <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm Password <span className="required-asterisk">*</span></label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  required
-                />
+                <label>Confirm Password <span className="required-asterisk">*</span></label>
+                <input type="password" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordInputChange} required />
               </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-cancel" onClick={handleClosePasswordModal} disabled={passwordLoading}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-settings" disabled={passwordLoading}>
-                  {passwordLoading ? 'Changing Password...' : 'Change Password'}
+                  {passwordLoading ? "Changing Password..." : "Change Password"}
                 </button>
               </div>
             </form>
@@ -497,80 +384,43 @@ const Settings = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Add Company Modal */}
       {isAddCompanyModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleCloseCompanyModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Add Company</h2>
-              <button className="modal-close" onClick={handleCloseCompanyModal}>
-                ×
-              </button>
+              <button className="modal-close" onClick={handleCloseCompanyModal}>×</button>
             </div>
-            {companyError && (
-              <div className="error-message" style={{ margin: '0 24px 20px', padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '6px', fontSize: '14px' }}>
-                {companyError}
-              </div>
-            )}
-            <form onSubmit={handleCompanySubmit}>
+
+            {companyError && <div className="error-message">{companyError}</div>}
+
+            <form onSubmit={handleCompanySubmit} className="modal-form">
               <div className="form-group">
-                <label htmlFor="companyName">Company Name <span className="required-asterisk">*</span></label>
-                <input
-                  type="text"
-                  id="companyName"
-                  name="companyName"
-                  value={companyData.companyName}
-                  onChange={handleCompanyInputChange}
-                  placeholder="Enter company name"
-                  maxLength={255}
-                  required
-                />
+                <label>Company Name <span className="required-asterisk">*</span></label>
+                <input name="companyName" value={companyData.companyName} onChange={handleCompanyInputChange} required />
               </div>
+
               <div className="form-group">
-                <label htmlFor="email">Email <span className="required-asterisk">*</span></label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={companyData.email}
-                  onChange={handleCompanyInputChange}
-                  placeholder="Enter email address"
-                  maxLength={255}
-                  required
-                />
+                <label>Email <span className="required-asterisk">*</span></label>
+                <input type="email" name="email" value={companyData.email} onChange={handleCompanyInputChange} required />
               </div>
+
               <div className="form-group">
-                <label htmlFor="phone">Phone <span className="required-asterisk">*</span></label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={companyData.phone}
-                  onChange={handleCompanyInputChange}
-                  placeholder="Enter phone number"
-                  maxLength={20}
-                  required
-                />
+                <label>Phone <span className="required-asterisk">*</span></label>
+                <input type="tel" name="phone" value={companyData.phone} onChange={handleCompanyInputChange} required />
               </div>
+
               <div className="form-group">
-                <label htmlFor="website">Website <span className="required-asterisk">*</span></label>
-                <input
-                  type="url"
-                  id="website"
-                  name="website"
-                  value={companyData.website}
-                  onChange={handleCompanyInputChange}
-                  placeholder="https://example.com"
-                  maxLength={500}
-                  required
-                />
+                <label>Website <span className="required-asterisk">*</span></label>
+                <input type="url" name="website" value={companyData.website} onChange={handleCompanyInputChange} placeholder="https://example.com" required />
               </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-cancel" onClick={handleCloseCompanyModal} disabled={companyLoading}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-settings" disabled={companyLoading}>
-                  {companyLoading ? 'Adding Company...' : 'Add Company'}
+                  {companyLoading ? "Adding Company..." : "Add Company"}
                 </button>
               </div>
             </form>
