@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import Header from "./Header";
 import { getAnalyticsTraffic } from "../services/analyticsService";
 import apiService from "../services/apiService";
+import { generateDashboardPdf } from "../utils/pdfGenerator";
+
 import "./Stats.css";
 
 import {
@@ -37,6 +39,74 @@ const Stats = ({ user, onLogout }) => {
   const [gaData, setGaData] = useState(null);
   const [activeTabName, setActiveTabName] = useState("Overview");
   const [selectedRange, setSelectedRange] = useState("30");
+  const [reportName, setReportName] = useState("");
+  const [email, setEmail] = useState("");
+
+
+  // Add Send PDF function
+
+  const handleSendPdf = async () => {
+    try {
+      const pdf = await generateDashboardPdf("report-content");
+
+      // 🔽 TEMP: download first (TEST THIS FIRST)
+      pdf.save(`${reportName || "web-analytics-report"}.pdf`);
+
+      // 🔽 LATER (when backend ready)
+      /*
+      const blob = pdf.output("blob");
+
+      const formData = new FormData();
+      formData.append("file", blob, `${reportName}.pdf`);
+      formData.append("email", email);
+
+      await apiService.post("/api/reports/send-pdf", formData);
+      */
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate PDF");
+    }
+  };
+
+
+  // Add Save Report function
+
+    // This will save:
+    // report name
+    // date range
+    // community filter
+    // current tab
+    // created date
+    // Later, once your backend has /api/reports/save, we can switch it from localStorage to database saving.
+
+
+    const handleSaveReport = () => {
+      try {
+        const savedReports =
+          JSON.parse(localStorage.getItem("savedReports")) || [];
+
+        const newReport = {
+          id: Date.now(),
+          reportName: reportName || "Untitled Report",
+          selectedRange,
+          selectedCommunity,
+          activeTabName,
+          createdAt: new Date().toISOString(),
+        };
+
+        localStorage.setItem(
+          "savedReports",
+          JSON.stringify([newReport, ...savedReports])
+        );
+
+        alert("Report saved!");
+      } catch (err) {
+        console.error(err);
+        alert("Failed to save report");
+      }
+    };
+
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -241,7 +311,7 @@ const Stats = ({ user, onLogout }) => {
     <div className="stats-page">
       <Header user={user} onLogout={onLogout} />
 
-      <main className="stats-content">
+      <main id="report-content" className="stats-content">
         <section className="stats-top-row">
           <div>
             <h1 className="stats-title">Web Analytics Report</h1>
@@ -251,9 +321,22 @@ const Stats = ({ user, onLogout }) => {
           </div>
 
           <div className="stats-actions">
-            <button className="stats-primary-button">Save Report</button>
-            <button className="stats-primary-button">Send As PDF</button>
-          </div>
+            <input
+              type="text"
+              placeholder="Enter report name"
+              value={reportName}
+              onChange={(e) => setReportName(e.target.value)}
+              style={{ padding: "6px 10px" }}
+            />
+
+            <button className="stats-primary-button" onClick={handleSaveReport}>
+              Save Report
+            </button>
+
+            <button className="stats-primary-button" onClick={handleSendPdf}>
+              Send As PDF
+            </button>
+    </div>
         </section>
 
         <section className="stats-filters">
@@ -341,7 +424,10 @@ const Stats = ({ user, onLogout }) => {
                       <p className="stats-empty">No analytics data available yet.</p>
                     ) : (
                       <ResponsiveContainer width="100%" height={320}>
-                        <AreaChart data={leadTrendData}>
+                          <AreaChart
+                            data={leadTrendData}
+                            margin={{ top: 10, right: 10, left: -30, bottom: 0 }}
+                          >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" />
                           <YAxis allowDecimals={false} />

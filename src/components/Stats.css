@@ -259,6 +259,11 @@
 ================================ */
 
 @media (max-width: 600px) {
+
+.stats-actions input {
+  display: none;
+}
+
   .stats-content {
     padding: 18px;
   }
