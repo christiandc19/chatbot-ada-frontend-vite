@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Login.css"; // Reuse the same styling as Login
-import workingPersonImage from "../assets/images/working-person.png";
+import "./ResetPassword.css";
+import logo from "../assets/images/logo.png";
+import workingPersonImage from "../assets/images/elderly-couple.webp";
 import apiService from "../services/apiService";
 
 const ResetPassword = () => {
@@ -18,7 +19,6 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      // Call API to send reset password email
       await apiService.resetPassword(email);
       setSuccess("Password reset email has been sent to your email address.");
     } catch (err) {
@@ -29,61 +29,83 @@ const ResetPassword = () => {
   };
 
   const handleBackToLogin = () => {
-    navigate('/');
+    navigate("/");
   };
 
-  return (
-    <div className="login-container">
-      <div className="login-left">
-        <div className="illustration">
-          <img src={workingPersonImage} alt="Person working on computer" />
-        </div>
-      </div>
+return (
+  <div className="reset-login-page">
+    <div className="reset-login-left">
+      <img src={workingPersonImage} alt="Senior couple" />
 
-      <div className="login-right">
-        <div className="login-card">
-          <h2>Hello!</h2>
-          <p className="subtitle">Please provide email address</p>
+      <div className="reset-login-overlay">
+        <div>
+          <h2>Turn website visitors into meaningful conversations.</h2>
+          <p>
+            Manage leads, conversations, surveys, and community engagement from
+            one simple dashboard.
+          </p>
 
-          {error && <div className="error-message">{error}</div>}
-          {success && (
-            <div className="success-message" style={{
-              backgroundColor: '#e8f5e8',
-              color: '#2e7d32',
-              padding: '12px',
-              borderRadius: '8px',
-              marginBottom: '20px',
-              fontSize: '14px',
-              border: '1px solid #a5d6a7'
-            }}>
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="input-group">
-              <span className="input-icon">✉</span>
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <button type="submit" className="login-button" disabled={loading}>
-              {loading ? "Sending..." : "Reset Password"}
-            </button>
-          </form>
-
-          <button type="button" className="forgot-password" onClick={handleBackToLogin}>
-            Back to Login
+          <button
+            type="button"
+            className="reset-talk-button"
+            onClick={() => window.open("https://websmartassistant.com/#demo", "_blank")}
+          >
+            Talk to Our Team
           </button>
+        </div>
+
+        <div className="reset-testimonial">
+          <div className="reset-stars">★★★★★</div>
+          <p>
+            “Helping communities respond faster, capture better insights, and
+            support families at the right moment.”
+          </p>
+          <strong>WebSmartAssistant Platform</strong>
         </div>
       </div>
     </div>
-  );
+
+    <div className="reset-login-right">
+      <div className="reset-login-card">
+        <img src={logo} alt="WebSmartAssistant logo" className="reset-logo" />
+
+        <h1>Reset Password</h1>
+
+        <p className="reset-subtitle">
+          Enter your email address and we’ll send reset instructions.
+        </p>
+
+        {error && <div className="reset-error-message">{error}</div>}
+        {success && <div className="reset-success-message">{success}</div>}
+
+        <form onSubmit={handleSubmit} className="reset-form">
+          <label htmlFor="reset-email">Email address</label>
+
+          <input
+            id="reset-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          <button type="submit" className="reset-submit-button" disabled={loading}>
+            {loading ? "Sending..." : "Send Reset Link"}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          className="reset-back-button"
+          onClick={handleBackToLogin}
+        >
+          Back to login
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 };
 
 export default ResetPassword;

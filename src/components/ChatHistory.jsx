@@ -1,139 +1,113 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import './ChatHistory.css';
-import Header from './Header';
-import apiService from '../services/apiService';
-import { formatLocalTime } from '../utils/dateUtils';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import "./ChatHistory.css";
+import Header from "./Header";
+import apiService from "../services/apiService";
+import { formatLocalTime, formatBubbleDateText } from "../utils/dateUtils";
 
 const ChatHistory = ({ user, onLogout }) => {
   const { leadId } = useParams();
   const navigate = useNavigate();
+
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [leadName, setLeadName] = useState('');
-  const [communityName, setCommunityName] = useState('');
-  const [newNote, setNewNote] = useState('');
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const [leadName, setLeadName] = useState("");
+  const [communityName, setCommunityName] = useState("");
+  const [newNote, setNewNote] = useState("");
 
   useEffect(() => {
     const fetchConversations = async (isPolling = false) => {
       try {
-        // Only show loading spinner on initial load, not during polling
-        if (!isPolling) {
-          setLoading(true);
-        }
-        
-        console.log('Fetching conversations for lead:', leadId);
+        if (!isPolling) setLoading(true);
+
         const data = await apiService.getConversationsByLead(leadId);
-        console.log('Conversations data received:', data);
-        
-        // Extract lead information from the API response (only on initial load)
+
         if (!isPolling) {
-          if (data.firstName && data.lastName) {
-            const fullName = `${data.firstName} ${data.lastName}`.trim();
-            setLeadName(fullName);
+          if (data.firstName || data.lastName) {
+            setLeadName(`${data.firstName || ""} ${data.lastName || ""}`.trim());
           }
-          
+
           if (data.community) {
             setCommunityName(data.community.name || data.community);
           }
         }
-        
-        // Handle conversations array from the payload
+
         const conversationsArray = data.conversations || data.messages || [];
-        
-        // Sort conversations by createdAt in ascending order (oldest first)
+
         const sortedConversations = conversationsArray.sort((a, b) => {
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
-          return dateA - dateB; // Ascending order
+          return new Date(a.createdAt) - new Date(b.createdAt);
         });
-        
-        // Only update messages if there are changes to prevent unnecessary re-renders
-        setMessages(prevMessages => {
-          const prevIds = prevMessages.map(m => m.id).sort().join(',');
-          const newIds = sortedConversations.map(m => m.id).sort().join(',');
-          
-          // Only update if messages actually changed
-          if (prevIds !== newIds) {
-            return sortedConversations;
-          }
-          return prevMessages;
-        });
-        
+
+        setMessages(sortedConversations);
         setError(null);
       } catch (err) {
-        console.error('Error fetching conversations:', err);
-        console.error('Error details:', {
-          message: err.message,
-          stack: err.stack,
-          leadId
-        });
-        
-        // Provide more specific error message based on error type
-        let errorMessage = 'Failed to load conversation history. ';
-        if (err.message.includes('500')) {
-          errorMessage += 'Server error - please check if the backend service is running properly.';
-        } else if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
-          errorMessage += 'Network connection error - please check if the server is accessible.';
+        console.error("Error fetching conversations:", err);
+
+        let errorMessage = "Failed to load conversation history. ";
+
+        if (err.message.includes("500")) {
+          errorMessage +=
+            "Server error - please check if the backend service is running properly.";
+        } else if (
+          err.message.includes("Failed to fetch") ||
+          err.message.includes("Network")
+        ) {
+          errorMessage +=
+            "Network connection error - please check if the server is accessible.";
         } else {
           errorMessage += `Error: ${err.message}`;
         }
-        
+
         setError(errorMessage);
       } finally {
-        // Only set loading to false on initial load
-        if (!isPolling) {
-          setLoading(false);
-        }
-        
-        // Mark initial load as complete
-        if (isInitialLoad) {
-          setIsInitialLoad(false);
-        }
+        if (!isPolling) setLoading(false);
       }
     };
 
     if (leadId) {
-      // Initial fetch
       fetchConversations(false);
-      
-      // Set up polling every 5 seconds for responsive chat experience
+
       const pollingInterval = setInterval(() => {
-        fetchConversations(true); // Pass true for polling calls
-      }, 5000); // 5 seconds - good balance for chat apps
-      
-      // Cleanup interval on component unmount or leadId change
-      return () => {
-        clearInterval(pollingInterval);
-      };
+        fetchConversations(true);
+      }, 5000);
+
+      return () => clearInterval(pollingInterval);
     }
   }, [leadId]);
 
   const handleBackToConversations = () => {
-    navigate('/conversations');
+    navigate("/conversations");
   };
 
   const handleAddNote = () => {
-    if (newNote.trim()) {
-      // Add note functionality - you can implement this later
-      console.log('Adding note:', newNote);
-      setNewNote('');
-    }
+    if (!newNote.trim()) return;
+
+    console.log("Adding note:", newNote);
+    setNewNote("");
   };
 
-  // Use the utility function for consistent time formatting
-  const formatTime = (timestamp) => {
-    return formatLocalTime(timestamp);
+  const getInitials = (name) => {
+    if (!name || !name.trim()) return "U";
+
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   const formatMessageText = (text) => {
-    if (!text) return '';
-    return text.split('\n').map((line, index) => (
+    if (!text) return "";
+
+    const cleanText = formatBubbleDateText(text);
+
+    return cleanText.split("\n").map((line, index) => (
       <React.Fragment key={index}>
         {line}
-        {index < text.split('\n').length - 1 && <br />}
+        {index < cleanText.split("\n").length - 1 && <br />}
       </React.Fragment>
     ));
   };
@@ -141,22 +115,23 @@ const ChatHistory = ({ user, onLogout }) => {
   return (
     <div className="chat-history-container">
       <Header user={user} onLogout={onLogout} />
-      
+
       <div className="chat-content">
         <div className="chat-header">
           <div className="breadcrumb">
-            <button 
-              className="breadcrumb-link" 
-              onClick={handleBackToConversations}
-            >
+            <button className="breadcrumb-link" onClick={handleBackToConversations}>
               ALL CONVERSATIONS
             </button>
+
             <span className="breadcrumb-separator">›</span>
+
             <span className="breadcrumb-current">
-              {leadName.toUpperCase()} ({communityName.toUpperCase()})
+              {(leadName || "Lead").toUpperCase()}{" "}
+              {communityName ? `(${communityName.toUpperCase()})` : ""}
             </span>
           </div>
-          <h1 className="chat-title">{leadName}</h1>
+
+          <h1 className="chat-title">{leadName || "Conversation"}</h1>
         </div>
 
         <div className="chat-messages-container">
@@ -179,54 +154,44 @@ const ChatHistory = ({ user, onLogout }) => {
                 </div>
               ) : (
                 messages.map((message, index) => {
-                  // Log the full message structure to debug API response
-                  console.log(`Message ${index}:`, message);
-                  
-                  // Check sender field from Conversations table (should be 'bot' or 'user')
-                  const isBot = message.sender === 'bot';
-                  
-                  console.log(`Message ${index} - Sender: "${message.sender}", IsBot: ${isBot}`);
-                  
-                  const senderName = isBot ? 'BOT' : leadName;
-                  
-                  // Generate initials for avatar using lead's actual name
-                  const getInitials = (name) => {
-                    if (!name || !name.trim()) return 'U';
-                    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-                  };
-                  
-                  const initials = isBot ? 'BOT' : getInitials(leadName);
-                  const avatarColor = isBot ? '#4f46e5' : '#6b7280';
-                  
+                  const isBot = message.sender === "bot";
+                  const senderName = isBot ? "BOT" : leadName;
+                  const initials = isBot ? "BOT" : getInitials(leadName);
+                  const avatarColor = isBot ? "#4f46e5" : "#64748b";
+                  const messageText =
+                    message.message || message.content || message.text || "";
+
                   return (
-                    <div 
-                      key={message.id || index} 
-                      className={`message-wrapper ${isBot ? 'message-wrapper-bot' : 'message-wrapper-user'}`}
+                    <div
+                      key={message.id || index}
+                      className={`message-wrapper ${
+                        isBot ? "message-wrapper-bot" : "message-wrapper-user"
+                      }`}
                     >
-                      {!isBot && (
-                        <div className="message-avatar" style={{ backgroundColor: avatarColor }}>
-                          {initials}
-                        </div>
-                      )}
-                      
-                      <div className={`message-bubble ${isBot ? 'message-bubble-bot' : 'message-bubble-user'}`}>
+                      <div
+                        className="message-avatar"
+                        style={{ backgroundColor: avatarColor }}
+                      >
+                        {initials}
+                      </div>
+
+                      <div
+                        className={`message-bubble ${
+                          isBot ? "message-bubble-bot" : "message-bubble-user"
+                        }`}
+                      >
                         <div className="message-header">
                           <span className="message-sender">{senderName}</span>
                           <span className="message-time">
-                            {formatTime(message.timestamp || message.createdAt)}
+                            {formatLocalTime(message.timestamp || message.createdAt)}
                           </span>
                           {isBot && <span className="bot-badge">BOT</span>}
                         </div>
+
                         <div className="message-text">
-                          {formatMessageText(message.message || message.content || message.text)}
+                          {formatMessageText(messageText)}
                         </div>
                       </div>
-                      
-                      {isBot && (
-                        <div className="message-avatar" style={{ backgroundColor: avatarColor }}>
-                          {initials}
-                        </div>
-                      )}
                     </div>
                   );
                 })
@@ -241,7 +206,7 @@ const ChatHistory = ({ user, onLogout }) => {
               + Add Note
             </button>
           </div>
-          
+
           <div className="message-input-section">
             <textarea
               className="message-input"
@@ -250,6 +215,7 @@ const ChatHistory = ({ user, onLogout }) => {
               onChange={(e) => setNewNote(e.target.value)}
               rows={3}
             />
+
             <button className="send-btn" onClick={handleAddNote}>
               Send
             </button>
