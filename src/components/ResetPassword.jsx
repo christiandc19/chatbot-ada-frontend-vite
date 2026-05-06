@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Login.css"; // Reuse the same styling as Login
-import workingPersonImage from "../assets/images/working-person.png";
+import "./ResetPassword.css";
+import elderlyCoupleImage from "../assets/images/elderly-couple.webp";
+import logo from "../assets/images/logo.png";
 import apiService from "../services/apiService";
+
 
 const ResetPassword = () => {
   const [email, setEmail] = useState("");
@@ -18,7 +20,6 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      // Call API to send reset password email
       await apiService.resetPassword(email);
       setSuccess("Password reset email has been sent to your email address.");
     } catch (err) {
@@ -29,60 +30,77 @@ const ResetPassword = () => {
   };
 
   const handleBackToLogin = () => {
-    navigate('/');
+    navigate("/");
   };
 
   return (
-    <div className="login-container">
-      <div className="login-left">
-        <div className="illustration">
-          <img src={workingPersonImage} alt="Person working on computer" />
+    <main className="reset-page">
+      <section className="reset-shell">
+        <div className="reset-image-panel">
+          <img src={elderlyCoupleImage} alt="Elderly couple smiling together" />
+
+          <div className="reset-image-overlay">
+            <span>Password Help</span>
+            <h1>Let’s get you back into your dashboard.</h1>
+            <p>
+              Enter your email address and we’ll send instructions to reset your
+              password.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="login-right">
-        <div className="login-card">
-          <h2>Hello!</h2>
-          <p className="subtitle">Please provide email address</p>
-
-          {error && <div className="error-message">{error}</div>}
-          {success && (
-            <div className="success-message" style={{
-              backgroundColor: '#e8f5e8',
-              color: '#2e7d32',
-              padding: '12px',
-              borderRadius: '8px',
-              marginBottom: '20px',
-              fontSize: '14px',
-              border: '1px solid #a5d6a7'
-            }}>
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="input-group">
-              <span className="input-icon">✉</span>
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+        <div className="reset-form-panel">
+          <div className="reset-card">
+            <div className="reset-logo">
+              <img src={logo} alt="Web Smart Assistant Logo" />
             </div>
 
-            <button type="submit" className="login-button" disabled={loading}>
-              {loading ? "Sending..." : "Reset Password"}
+            <div className="reset-card-header">
+              <span className="reset-badge">Account Recovery</span>
+              <h2>Reset Password</h2>
+              <p>
+                No worries. Enter the email connected to your account and we’ll
+                help you create a new password.
+              </p>
+            </div>
+
+            {error && <div className="reset-alert reset-alert-error">{error}</div>}
+
+            {success && (
+              <div className="reset-alert reset-alert-success">{success}</div>
+            )}
+
+            <form onSubmit={handleSubmit} className="reset-form">
+              <label htmlFor="reset-email">Email Address</label>
+
+              <div className="reset-input-wrap">
+                <span>✉</span>
+                <input
+                  id="reset-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="reset-submit" disabled={loading}>
+                {loading ? "Sending..." : "Send Reset Link"}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              className="reset-back-button"
+              onClick={handleBackToLogin}
+            >
+              Back to Login
             </button>
-          </form>
-
-          <button type="button" className="forgot-password" onClick={handleBackToLogin}>
-            Back to Login
-          </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 
