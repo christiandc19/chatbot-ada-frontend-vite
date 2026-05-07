@@ -14,6 +14,28 @@ const Conversations = ({ user, onLogout }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [leadsPerPage, setLeadsPerPage] = useState(10);  
+
+  const getLeadSource = (conv) => {
+    const rawSource = conv.source || conv.leadSource || "";
+
+    if (!rawSource || rawSource.trim() === "") {
+      return "Chatbot";
+    }
+
+    const normalizedSource = rawSource.toLowerCase();
+
+    if (normalizedSource.includes("webform")) return "Webform";
+    if (normalizedSource.includes("survey")) return "Survey Form";
+    if (normalizedSource.includes("chatbot")) return "Chatbot";
+
+    return rawSource;
+  };
+
+  const getSourceClass = (source) => {
+    return `source-badge source-${source.toLowerCase().replace(/\s+/g, "-")}`;
+  };
 
   useEffect(() => {
     trackEvent("Conversations", "Page View", "Conversations Page");
@@ -91,6 +113,7 @@ const Conversations = ({ user, onLogout }) => {
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
+    setCurrentPage(1);
 
     if (searchTimer) {
       clearTimeout(searchTimer);
@@ -127,22 +150,202 @@ const Conversations = ({ user, onLogout }) => {
       })
     : [];
 
+
+    const totalPages = Math.ceil(filteredConversations.length / leadsPerPage);
+
+    const startIndex = (currentPage - 1) * leadsPerPage;
+    const endIndex = startIndex + leadsPerPage;
+
+    const paginatedConversations = filteredConversations.slice(
+      startIndex,
+      endIndex
+    );
+
+
+  const today = new Date();
+
+const isThisWeek = (date) => {
+  if (!date) return false;
+
+  const createdDate = new Date(date);
+
+  const weekAgo = new Date();
+  weekAgo.setDate(today.getDate() - 7);
+
+  return createdDate >= weekAgo;
+};
+
+const weeklyLeads = conversations.filter((conv) =>
+  isThisWeek(conv.createdAt)
+);
+
+const weeklyWebformLeads = conversations.filter(
+  (conv) =>
+    getLeadSource(conv) === "Webform" &&
+    isThisWeek(conv.createdAt)
+);
+
+const weeklyChatbotLeads = conversations.filter(
+  (conv) =>
+    getLeadSource(conv) === "Chatbot" &&
+    isThisWeek(conv.createdAt)
+);
+
+const weeklySurveyLeads = conversations.filter(
+  (conv) =>
+    getLeadSource(conv) === "Survey Form" &&
+    isThisWeek(conv.createdAt)
+);
+
+
+  const leadStats = {
+    total: Array.isArray(conversations) ? conversations.length : 0,
+    webform: Array.isArray(conversations)
+      ? conversations.filter((conv) => getLeadSource(conv) === "Webform").length
+      : 0,
+    chatbot: Array.isArray(conversations)
+      ? conversations.filter((conv) => getLeadSource(conv) === "Chatbot").length
+      : 0,
+    survey: Array.isArray(conversations)
+      ? conversations.filter((conv) => getLeadSource(conv) === "Survey Form").length
+      : 0,
+  };
+
+  const renderLeadRows = () => {
+    if (filteredConversations.length === 0) {
+      return (
+        <tr>
+          <td colSpan="6" className="no-data">
+            {searchQuery ? "No leads match your search." : "No leads found."}
+          </td>
+        </tr>
+      );
+    }
+
+      return paginatedConversations.map((conv) => {
+      const leadName =
+        `${conv.firstName || ""} ${conv.lastName || ""}`.trim() || "Unknown";
+
+      const leadSource = getLeadSource(conv);
+
+      const initials =
+        conv.initials ||
+        leadName
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase();
+
+      const handleLeadClick = () => {
+        trackEvent("Conversations", "Viewed Lead", "Lead opened");
+
+        if (conv.id) {
+          navigate(`/conversations/${conv.id}`);
+        }
+      };
+
+      return (
+        <tr key={conv.id}>
+          <td>
+            <div className="lead-cell">
+              <div className="lead-avatar">{initials}</div>
+
+              <span
+                className="lead-name clickable"
+                onClick={handleLeadClick}
+                title="View conversation history"
+              >
+                {leadName}
+              </span>
+            </div>
+          </td>
+
+          <td className="contact-cell">
+            <div>{conv.phone || "N/A"}</div>
+            <div className="contact-email">{conv.email || "N/A"}</div>
+          </td>
+
+          <td>{conv.community || "N/A"}</td>
+
+          <td>
+            <span className={getSourceClass(leadSource)}>{leadSource}</span>
+          </td>
+
+          <td>
+            <span className={`status-badge status-${conv.status?.toLowerCase()}`}>
+              {conv.status || "-"}
+            </span>
+          </td>
+
+          <td className="created-cell">
+            <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
+            <span className="created-time">
+              {conv.created?.time || formatLocalTime(conv.createdAt)}
+            </span>
+          </td>
+        </tr>
+      );
+    });
+  };
+
+
   return (
     <div className="conversations-container">
       <Header user={user} onLogout={onLogout} />
 
       <div className="conversations-content">
         <div className="page-title-section">
-          <div className="page-icon">💬</div>
-          <h1 className="page-title">All Conversations</h1>
+          <div>
+            <div className="page-kicker">Lead Inbox</div>
+            <h1 className="page-title">All Conversations</h1>
+            <p className="page-subtitle">
+              Review leads from chat, webforms, and surveys in one place.
+            </p>
+          </div>
         </div>
 
-        <div className="conversations-controls">
+        <div className="stats-grid">
+
+        <div className="stat-card">
+          <span className="stat-label">Total Leads</span>
+          <strong>{leadStats.total}</strong>
+          <span className="stat-trend">
+            +{weeklyLeads.length} this week
+          </span>
+        </div>
+
+        <div className="stat-card">
+          <span className="stat-label">Webform Leads</span>
+          <strong>{leadStats.webform}</strong>
+          <span className="stat-trend">
+            +{weeklyWebformLeads.length} this week
+          </span>
+        </div>
+
+        <div className="stat-card">
+          <span className="stat-label">Chatbot Leads</span>
+          <strong>{leadStats.chatbot}</strong>
+          <span className="stat-trend">
+            +{weeklyChatbotLeads.length} this week
+          </span>
+        </div>
+
+        <div className="stat-card">
+          <span className="stat-label">Survey Leads</span>
+          <strong>{leadStats.survey}</strong>
+          <span className="stat-trend">
+            +{weeklySurveyLeads.length} this week
+          </span>
+        </div>
+          
+        </div>
+
+        <div className="conversations-toolbar">
           <div className="search-box">
             <span className="search-icon">🔍</span>
             <input
               type="text"
-              placeholder="Search leads and conversations"
+              placeholder="Search leads by name, email, or phone"
               value={searchQuery}
               onChange={handleSearchChange}
             />
@@ -174,195 +377,83 @@ const Conversations = ({ user, onLogout }) => {
           </div>
         </div>
 
-<div className="conversations-table">
-  {loading ? (
-    <div className="loading-state">
-      <p>Loading leads...</p>
-    </div>
-  ) : error ? (
-    <div className="error-state">
-      <p>{error}</p>
-      <button onClick={() => window.location.reload()} className="btn btn-retry">
-        Retry
-      </button>
-    </div>
-  ) : (
-    <>
-      <table>
-        <thead>
-          <tr>
-            <th>LEAD</th>
-            <th>CONTACT</th>
-            <th>COMMUNITY</th>
-            <th>SOURCE</th>
-            <th>STATUS</th>
-            <th>CREATED</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {filteredConversations.length === 0 ? (
-            <tr>
-              <td colSpan="6" className="no-data">
-                {searchQuery ? "No leads match your search." : "No leads found."}
-              </td>
-            </tr>
-          ) : (
-            filteredConversations.map((conv) => {
-              const leadName =
-                `${conv.firstName || ""} ${conv.lastName || ""}`.trim() ||
-                "Unknown";
-
-              const initials =
-                conv.initials ||
-                leadName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase();
-
-              const color =
-                conv.color ||
-                `hsl(${((conv.id || 0) * 137.508) % 360}, 70%, 60%)`;
-
-              const handleLeadClick = () => {
-                trackEvent("Conversations", "Viewed Lead", "Lead opened");
-
-                if (conv.id) {
-                  navigate(`/conversations/${conv.id}`);
-                }
-              };
-
-              return (
-                <tr key={conv.id}>
-                  <td>
-                    <div className="lead-cell">
-                      <div className="lead-avatar" style={{ background: color }}>
-                        {initials}
-                      </div>
-
-                      <span
-                        className="lead-name clickable"
-                        onClick={handleLeadClick}
-                        title="View conversation history"
-                      >
-                        {leadName}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="contact-cell">
-                    <div>{conv.phone || "N/A"}</div>
-                    <div className="contact-email">{conv.email || "N/A"}</div>
-                  </td>
-
-                  <td>{conv.community || "N/A"}</td>
-
-                  <td>
-                    <span className="source-badge">{conv.source || "-"}</span>
-                  </td>
-
-                  <td>
-                    <span className={`status-badge status-${conv.status?.toLowerCase()}`}>
-                      {conv.status || "-"}
-                    </span>
-                  </td>
-
-                  <td className="created-cell">
-                    <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
-                    <span className="created-time">
-                      {conv.created?.time || formatLocalTime(conv.createdAt)}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-
-      <div className="mobile-cards">
-        {filteredConversations.map((conv) => {
-          const leadName =
-            `${conv.firstName || ""} ${conv.lastName || ""}`.trim() ||
-            "Unknown";
-
-          const initials =
-            conv.initials ||
-            leadName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase();
-
-          const color =
-            conv.color ||
-            `hsl(${((conv.id || 0) * 137.508) % 360}, 70%, 60%)`;
-
-          const handleLeadClick = () => {
-            trackEvent("Conversations", "Viewed Lead", "Lead opened");
-
-            if (conv.id) {
-              navigate(`/conversations/${conv.id}`);
-            }
-          };
-
-          return (
-            <div key={conv.id} className="conversation-card">
-              <div className="card-header">
-                <div className="lead-avatar" style={{ background: color }}>
-                  {initials}
-                </div>
-
-                <span
-                  className="lead-name clickable"
-                  onClick={handleLeadClick}
-                  title="View conversation history"
-                >
-                  {leadName}
-                </span>
-              </div>
-
-              <div className="card-body">
-                <div>
-                  <span className="card-label">Phone</span>
-                  <span className="card-value">{conv.phone || "N/A"}</span>
-                </div>
-
-                <div>
-                  <span className="card-label">Email</span>
-                  <span className="card-value">{conv.email || "N/A"}</span>
-                </div>
-
-                <div>
-                  <span className="card-label">Community</span>
-                  <span className="card-value">{conv.community || "N/A"}</span>
-                </div>
-
-                <div>
-                  <span className="card-label">Source</span>
-                  <span className="card-value">{conv.source || "-"}</span>
-                </div>
-
-                <div>
-                  <span className="card-label">Status</span>
-                  <span className={`status-badge status-${conv.status?.toLowerCase()}`}>
-                    {conv.status || "-"}
-                  </span>
-                </div>
-              </div>
+        <div className="conversations-table">
+          {loading ? (
+            <div className="loading-state">
+              <p>Loading leads...</p>
             </div>
-          );
-        })}
+          ) : error ? (
+            <div className="error-state">
+              <p>{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="btn btn-retry"
+              >
+                Retry
+              </button>
+            </div>
+) : (
+  <>
+    <table>
+      <thead>
+        <tr>
+          <th>LEAD</th>
+          <th>CONTACT</th>
+          <th>COMMUNITY</th>
+          <th>SOURCE</th>
+          <th>STATUS</th>
+          <th>CREATED</th>
+        </tr>
+      </thead>
+
+      <tbody>{renderLeadRows()}</tbody>
+    </table>
+
+    <div className="pagination-bar">
+      <div className="pagination-size">
+        <span>Rows per page</span>
+
+        <select
+          value={leadsPerPage}
+          onChange={(e) => {
+            setLeadsPerPage(Number(e.target.value));
+            setCurrentPage(1);
+          }}
+        >
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+        </select>
       </div>
-    </>
-  )}
-</div>
 
+      <div className="pagination-controls">
+        <span>
+          Page {currentPage} of {totalPages || 1}
+        </span>
 
+        <button
+          type="button"
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage((prev) => prev - 1)}
+        >
+          Previous
+        </button>
+
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  </>
+)}
 
         </div>
       </div>
+    </div>
   );
 };
 
