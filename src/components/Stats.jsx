@@ -41,6 +41,13 @@ const Stats = ({ user, onLogout }) => {
   const [selectedRange, setSelectedRange] = useState("30");
   const [reportName, setReportName] = useState("");
   const [email, setEmail] = useState("");
+  
+  // Counts leads marked as Tour Scheduled.
+  const [toursScheduled, setToursScheduled] = useState(0);
+
+  // Counts leads marked as Converted / Move-in.
+  const [moveIns, setMoveIns] = useState(0);
+
 
 
   // Add Send PDF function
@@ -138,6 +145,21 @@ const Stats = ({ user, onLogout }) => {
               );
 
         setTotalLeads(filteredLeads.length);
+
+        // Count how many filtered leads have the status "Tour Scheduled".
+        const tourScheduledCount = filteredLeads.filter(
+          (lead) => (lead.status || "").toLowerCase() === "tour scheduled"
+        ).length;
+
+        // Count how many filtered leads have the status "Converted".
+        // In senior living, this represents Move-ins.
+        const moveInCount = filteredLeads.filter(
+          (lead) => (lead.status || "").toLowerCase() === "converted"
+        ).length;
+
+        // Save the counts so the KPI cards can display them.
+        setToursScheduled(tourScheduledCount);
+        setMoveIns(moveInCount);
 
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
@@ -411,9 +433,18 @@ const Stats = ({ user, onLogout }) => {
                     subtext={`${weekLeads} this week`}
                   />
 
-                  <Metric label="Tours Scheduled" value={0} subtext="Coming soon" />
+                  <Metric
+                    label="Tours Scheduled"
+                    value={toursScheduled}
+                    subtext="Based on lead status"
+                  />
 
-                  <Metric label="Move-ins" value={0} subtext="Coming soon" />
+                  <Metric
+                    label="Move-ins"
+                    value={moveIns}
+                    subtext="Based on converted leads"
+                  />
+
                 </section>
 
                 <section className="stats-chart-grid">

@@ -7,15 +7,35 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 // API Keys for authentication
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "dev-admin-key-12345";
 
+
+// This key is used for creating leads through the existing lead endpoint.
+const LEAD_API_KEY =
+  import.meta.env.VITE_LEAD_API_KEY || "dev-chatbot-key-12345";
+
 class ApiService {
 
   // Helper method to build headers with admin authentication
+  // Builds authentication headers for admin API requests.
+  // Builds authentication headers for dashboard/admin API requests.
+  // We send both headers because some backend endpoints expect X-Admin-Api-Key,
+  // while other lead/widget-related endpoints may expect X-Api-Key.
   _buildAdminHeaders(additionalHeaders = {}) {
     return {
       "X-Admin-Api-Key": ADMIN_API_KEY,
-      ...additionalHeaders
+      "X-Api-Key": ADMIN_API_KEY,
+      ...additionalHeaders,
     };
   }
+
+  // Builds authentication headers for creating leads.
+// Your POST /leads endpoint expects X-Api-Key, not X-Admin-Api-Key.
+_buildLeadHeaders(additionalHeaders = {}) {
+  return {
+    "X-Api-Key": LEAD_API_KEY,
+    ...additionalHeaders,
+  };
+}
+
 async login(email, password) {
   const response = await fetch(`${API_BASE_URL}/users/login`, {
     method: "POST",
@@ -252,6 +272,48 @@ async login(email, password) {
       throw error;
     }
   }
+
+
+
+      // Creates a new lead manually from the dashboard.
+      // This is used by the "Add Lead" modal on the All Conversations page.
+      async createLead(leadData) {
+        // Build the payload using the same style as your backend DTO.
+        // Capitalized keys match your .NET backend request model.
+        const payload = {
+          FirstName: leadData.firstName,
+          LastName: leadData.lastName,
+          Email: leadData.email,
+          Phone: leadData.phone,
+          Source: leadData.source,
+          ClientKey: leadData.clientKey,
+          Status: leadData.status,
+
+          // This creates an initial conversation/note for the manual lead.
+          Conversations: leadData.notes
+            ? [
+                {
+                  Message: leadData.notes,
+                  Sender: "Admin",
+                },
+              ]
+            : [],
+        };
+
+        const response = await fetch(`${API_BASE_URL}/leads`, {
+          method: "POST",
+          headers: this._buildLeadHeaders({ "Content-Type": "application/json" }),          
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(await this._readError(response, "Failed to create lead"));
+        }
+
+        return this._readJsonOrSuccess(response, "Lead created successfully");
+      }
+
+
 
   async getConversationsByLead(leadId) {
     try {

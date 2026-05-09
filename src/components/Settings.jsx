@@ -235,6 +235,8 @@ const Settings = ({ user, onLogout }) => {
 
     try {
       await apiService.createCompany(companyData);
+      const updatedCompanies = await apiService.getCompanies();
+      setCompanies(updatedCompanies);
       showNotification("Company added successfully!", "success");
       handleCloseCompanyModal();
     } catch (error) {

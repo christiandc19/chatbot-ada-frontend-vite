@@ -16,7 +16,7 @@ import UpdateCommunity from './components/UpdateCommunity';
 import UpdateCompany from './components/UpdateCompany';
 import { useLocation } from 'react-router-dom';
 import { trackPageView } from './utils/analytics';
-
+import Profile from './components/Profile';
 
 function AnalyticsTracker() {
   const location = useLocation();
@@ -101,6 +101,7 @@ function App() {
           <Route path="/settings" element={<Settings user={user} onLogout={handleLogout} />} />
           <Route path="/settings/update-user" element={<UpdateUser user={user} onLogout={handleLogout} />} />
           <Route path="/settings/update-company" element={<UpdateCompany user={user} onLogout={handleLogout} />} />
+          <Route path="/profile" element={<Profile user={user} onLogout={handleLogout} />} />
           <Route path="*" element={<Navigate to="/conversations" replace />} />
         </Routes>
       </main>
