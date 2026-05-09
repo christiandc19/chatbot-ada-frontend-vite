@@ -6,6 +6,17 @@ import apiService from "../services/apiService";
 import { formatLocalDate, formatLocalTime } from "../utils/dateUtils";
 import { trackEvent } from "../utils/analytics";
 
+// Status options used by the custom status dropdown.
+const statusOptions = [
+  "New",
+  "Attempted Contact",
+  "Contacted",
+  "Qualified",
+  "Tour Scheduled",
+  "Converted",
+  "Closed",
+];
+
 const Conversations = ({ user, onLogout }) => {
   const navigate = useNavigate();
 
@@ -16,6 +27,9 @@ const Conversations = ({ user, onLogout }) => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [leadsPerPage, setLeadsPerPage] = useState(10); 
+
+  // Tracks which lead's status dropdown is currently open.
+  const [openStatusLeadId, setOpenStatusLeadId] = useState(null);
 
   // Controls whether the Actions dropdown is open or closed.
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -397,39 +411,51 @@ const weeklySurveyLeads = conversations.filter(
               Status dropdown for each lead.
               If the lead does not have a status yet, we show "New" by default.
             */}
-            <select
+          <div className="status-menu-wrapper">
+            <button
+              type="button"
               className={`status-select status-${(conv.status || "New")
                 .toLowerCase()
                 .replace(/\s+/g, "-")}`}
-              value={conv.status || "New"}
-              onChange={(e) => {
-                const newStatus = e.target.value;
-
-                /*
-                  This updates the status immediately on the screen.
-                  For now, this is frontend-only until we connect it to the backend.
-                */
-                setConversations((prevConversations) =>
-                  prevConversations.map((lead) =>
-                    lead.id === conv.id
-                      ? { ...lead, status: newStatus }
-                      : lead
-                  )
-                );
-
-                trackEvent("Conversations", "Status Changed", newStatus);
-              }}
+              onClick={() =>
+                setOpenStatusLeadId((prev) => (prev === conv.id ? null : conv.id))
+              }
             >
-              <option value="New">New</option>
-              <option value="Attempted Contact">Attempted Contact</option>
-              <option value="Contacted">Contacted</option>
-              <option value="Qualified">Qualified</option>
-              <option value="Tour Scheduled">Tour Scheduled</option>
-              <option value="Converted">Converted</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </td>
+              <span>{conv.status || "New"}</span>
+              <span className="status-caret">⌄</span>
+            </button>
 
+            {openStatusLeadId === conv.id && (
+              <div className="status-options-menu">
+                {statusOptions.map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className="status-option"
+                    onClick={() => {
+                      setConversations((prevConversations) =>
+                        prevConversations.map((lead) =>
+                          lead.id === conv.id ? { ...lead, status } : lead
+                        )
+                      );
+
+                      setOpenStatusLeadId(null);
+                      trackEvent("Conversations", "Status Changed", status);
+                    }}
+                  >
+                    <span
+                      className={`status-dot status-dot-${status
+                        .toLowerCase()
+                        .replace(/\s+/g, "-")}`}
+                    />
+                    {status}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>          
+
+          </td>
           <td className="created-cell">
             <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
             <span className="created-time">
