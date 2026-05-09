@@ -465,25 +465,128 @@
 }
 
 /* Status Dropdown */
+.status-menu-wrapper {
+  position: relative;
+  width: fit-content;
+}
+
 .status-select {
-  width: auto;
-  min-width: 120px;
-  max-width: 145px;
+  min-width: 150px;
   height: 34px;
-  padding: 0 32px 0 12px;
+  padding: 0 10px 0 12px;
+
   border: 1px solid transparent;
   border-radius: 999px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
   font-size: 12px;
   font-weight: 500;
-  outline: none;
+  line-height: 1;
+
+  white-space: nowrap;
+
   cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7L10 12L15 7' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 10px;
+}
+
+.status-caret {
+  position: relative;
+  top: -5px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 14px;
+  height: 14px;
+
+  font-size: 12px;
+  line-height: 1;
+
+  opacity: 0.7;
+}
+
+.status-options-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+
+  z-index: 80;
+
+  width: 190px;
+  padding: 6px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+}
+
+.status-option {
+  width: 100%;
+  min-height: 34px;
+
+  padding: 0 10px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: transparent;
+  color: #0f172a;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-option:hover {
+  background: #f8fafc;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 8px;
+}
+
+.status-dot-new {
+  background: #2563eb;
+}
+
+.status-dot-attempted-contact {
+  background: #c2410c;
+}
+
+.status-dot-contacted {
+  background: #92400e;
+}
+
+.status-dot-qualified {
+  background: #047857;
+}
+
+.status-dot-tour-scheduled {
+  background: #6d28d9;
+}
+
+.status-dot-converted {
+  background: #166534;
+}
+
+.status-dot-closed {
+  background: #475569;
 }
 
 .status-new {
