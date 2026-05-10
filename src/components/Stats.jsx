@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Header from "./Header";
 import { getAnalyticsTraffic } from "../services/analyticsService";
 import apiService from "../services/apiService";
@@ -30,25 +30,28 @@ import {
   Cell,
 } from "recharts";
 
-const tabs = [
+const TABS = [
   "Overview",
   "Insights",
   "Conversation Analytics",
   "Instant Answers Analytics",
-  "Saved Reports",
+  "Report History",
 ];
 
+const DEFAULT_REPORT_NAME = "Web Analytics Report";
+const REPORT_HISTORY_STORAGE_KEY = "reportHistory";
+
 const SOURCE_COLORS = {
-  chatbot: "#2564ebce",
-  survey: "#16a34ac2",
-  webform: "#f97416b6",
+  chatbot: "#2563eb",
+  survey: "#16a34a",
+  webform: "#f97316",
+  other: "#94a3b8",
 };
 
 const Stats = ({ user, onLogout }) => {
   const [leadTrendData, setLeadTrendData] = useState([]);
   const [sourceData, setSourceData] = useState([]);
   const [totalLeads, setTotalLeads] = useState(0);
-  const [weekLeads, setWeekLeads] = useState(0);
   const [selectedCommunity, setSelectedCommunity] = useState("all");
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,18 +59,36 @@ const Stats = ({ user, onLogout }) => {
   const [activeTabName, setActiveTabName] = useState("Overview");
   const [selectedRange, setSelectedRange] = useState("30");
   const [reportName, setReportName] = useState("");
-  const [email, setEmail] = useState("");
+  const [savedReportName, setSavedReportName] = useState("");
+  const [reportHistory, setReportHistory] = useState([]);
 
   // Lead source KPI counts.
   const [webformLeads, setWebformLeads] = useState(0);
   const [chatLeads, setChatLeads] = useState(0);
   const [surveyLeads, setSurveyLeads] = useState(0);
 
-  // Counts leads marked as Tour Scheduled.
+  // Status-based KPI counts.
   const [toursScheduled, setToursScheduled] = useState(0);
-
-  // Counts leads marked as Converted / Move-in.
   const [moveIns, setMoveIns] = useState(0);
+
+  // Load locally saved report history once when this page opens.
+  useEffect(() => {
+    try {
+      const savedHistory = JSON.parse(
+        localStorage.getItem(REPORT_HISTORY_STORAGE_KEY)
+      );
+
+      setReportHistory(Array.isArray(savedHistory) ? savedHistory : []);
+    } catch (error) {
+      console.error("Unable to load report history:", error);
+      setReportHistory([]);
+    }
+  }, []);
+
+  // This is the name used by the generated PDF and report history.
+  const reportDisplayName = useMemo(() => {
+    return savedReportName || DEFAULT_REPORT_NAME;
+  }, [savedReportName]);
 
   const getLeadSourceType = (lead) => {
     const source = (lead?.source || lead?.leadSource || "").toLowerCase();
@@ -76,57 +97,162 @@ const Stats = ({ user, onLogout }) => {
     if (source.includes("survey")) return "survey";
     if (source.includes("chat") || source.includes("chatbot")) return "chatbot";
 
-    // Match All Conversations behavior: blank source defaults to Chatbot.
+    // Keep this aligned with All Conversations: blank source defaults to Chatbot.
     if (!source) return "chatbot";
 
     return "other";
   };
 
-  const handleSendPdf = async () => {
-    try {
-      const pdf = await generateDashboardPdf("report-content");
+  const formatSourceName = (source) => {
+    if (source === "webform") return "Web Form";
+    if (source === "survey") return "Survey";
+    if (source === "chatbot") return "Chatbot";
 
-      // TEMP: download first while backend report email endpoint is not connected yet.
-      pdf.save(`${reportName || "web-analytics-report"}.pdf`);
-
-      // LATER: when backend is ready, send the PDF blob to an email endpoint.
-      /*
-      const blob = pdf.output("blob");
-
-      const formData = new FormData();
-      formData.append("file", blob, `${reportName}.pdf`);
-      formData.append("email", email);
-
-      await apiService.post("/api/reports/send-pdf", formData);
-      */
-    } catch (err) {
-      console.error(err);
-      alert("Failed to generate PDF");
-    }
+    return "Other";
   };
 
-  const handleSaveReport = () => {
-    try {
-      const savedReports = JSON.parse(localStorage.getItem("savedReports")) || [];
+  const normalizeDateKey = (key) => {
+    if (!key) return "";
 
-      const newReport = {
-        id: Date.now(),
-        reportName: reportName || "Untitled Report",
+    const stringKey = String(key);
+
+    // GA4 may return dates as YYYYMMDD. Convert to YYYY-MM-DD for chart matching.
+    if (stringKey.length === 8 && !stringKey.includes("-")) {
+      return `${stringKey.slice(0, 4)}-${stringKey.slice(4, 6)}-${stringKey.slice(
+        6,
+        8
+      )}`;
+    }
+
+    return stringKey;
+  };
+
+  const saveReportToHistory = () => {
+    const newReport = {
+      id: Date.now(),
+      reportName: reportDisplayName,
+      selectedRange,
+      selectedCommunity,
+      activeTabName,
+      createdAt: new Date().toISOString(),
+      fileType: "PDF",
+    };
+
+    const updatedHistory = [newReport, ...reportHistory];
+
+    localStorage.setItem(
+      REPORT_HISTORY_STORAGE_KEY,
+      JSON.stringify(updatedHistory)
+    );
+    setReportHistory(updatedHistory);
+  };
+
+  const handleSaveReportName = () => {
+    const cleanName = reportName.trim();
+
+    // Empty names intentionally fall back to the default report name.
+    if (!cleanName) {
+      setSavedReportName("");
+      return;
+    }
+
+    setSavedReportName(cleanName);
+  };
+
+  const handleReportNameChange = (event) => {
+    setReportName(event.target.value);
+
+    // If the user edits the input after saving, require them to save the new name.
+    setSavedReportName("");
+  };
+
+  const handleDeleteReport = (reportId) => {
+    const updatedHistory = reportHistory.filter(
+      (report) => report.id !== reportId
+    );
+
+    localStorage.setItem(
+      REPORT_HISTORY_STORAGE_KEY,
+      JSON.stringify(updatedHistory)
+    );
+    setReportHistory(updatedHistory);
+  };
+
+  const generateRecommendations = () => {
+    const visitors = gaData?.totals?.activeUsers || 0;
+    const leads = totalLeads;
+    const conversionRate = visitors > 0 ? (leads / visitors) * 100 : 0;
+    const topSource = [...sourceData].sort((a, b) => b.value - a.value)[0];
+    const recommendations = [];
+
+    if (visitors > 30 && conversionRate < 3) {
+      recommendations.push({
+        title: "Improve Lead Conversion",
+        insight: `${visitors} visitors but only ${leads} leads.`,
+        recommendation:
+          "Improve your CTA, simplify forms, or offer a guide before asking for contact information.",
+      });
+    }
+
+    if (visitors > 50 && leads === 0) {
+      recommendations.push({
+        title: "Traffic Not Converting",
+        insight: `${visitors} visitors with zero leads.`,
+        recommendation:
+          "Move the chatbot earlier in the visitor journey and highlight scheduling or pricing faster.",
+      });
+    }
+
+    if (visitors < 20) {
+      recommendations.push({
+        title: "Increase Traffic",
+        insight: `Only ${visitors} visitors.`,
+        recommendation: "Focus on SEO, local pages, and paid campaigns.",
+      });
+    }
+
+    if (topSource) {
+      recommendations.push({
+        title: "Top Lead Source",
+        insight: `${topSource.name} is your strongest lead source.`,
+        recommendation: "Double down on this channel and optimize it further.",
+      });
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push({
+        title: "Performance Stable",
+        insight: "Your traffic and leads look healthy.",
+        recommendation: "Keep monitoring. More insights will appear as data grows.",
+      });
+    }
+
+    return recommendations;
+  };
+
+  const handleGeneratePdf = () => {
+    try {
+      generateDashboardPdf({
+        reportName: reportDisplayName,
         selectedRange,
         selectedCommunity,
         activeTabName,
-        createdAt: new Date().toISOString(),
-      };
+        visitors: gaData?.totals?.activeUsers || 0,
+        totalLeads,
+        webformLeads,
+        chatLeads,
+        surveyLeads,
+        toursScheduled,
+        moveIns,
+        leadTrendData,
+        sourceData,
+        recommendations: generateRecommendations(),
+      });
 
-      localStorage.setItem(
-        "savedReports",
-        JSON.stringify([newReport, ...savedReports])
-      );
-
-      alert("Report saved!");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save report");
+      saveReportToHistory();
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      alert("Failed to generate PDF");
     }
   };
 
@@ -159,7 +285,6 @@ const Stats = ({ user, onLogout }) => {
 
         setTotalLeads(filteredLeads.length);
 
-        // Count lead source KPI cards.
         const webformCount = filteredLeads.filter(
           (lead) => getLeadSourceType(lead) === "webform"
         ).length;
@@ -176,25 +301,18 @@ const Stats = ({ user, onLogout }) => {
         setSurveyLeads(surveyCount);
         setChatLeads(chatCount);
 
-        // Count how many filtered leads have the status "Tour Scheduled".
-        const tourScheduledCount = filteredLeads.filter(
-          (lead) => (lead.status || "").toLowerCase() === "tour scheduled"
-        ).length;
+        setToursScheduled(
+          filteredLeads.filter(
+            (lead) => (lead.status || "").toLowerCase() === "tour scheduled"
+          ).length
+        );
 
-        // Count how many filtered leads have the status "Converted".
-        // In senior living, this represents Move-ins.
-        const moveInCount = filteredLeads.filter(
-          (lead) => (lead.status || "").toLowerCase() === "converted"
-        ).length;
+        setMoveIns(
+          filteredLeads.filter(
+            (lead) => (lead.status || "").toLowerCase() === "converted"
+          ).length
+        );
 
-        setToursScheduled(tourScheduledCount);
-        setMoveIns(moveInCount);
-
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
-        oneWeekAgo.setHours(0, 0, 0, 0);
-
-        let weekCount = 0;
         const grouped = {};
         const sourceMap = {};
 
@@ -203,31 +321,11 @@ const Stats = ({ user, onLogout }) => {
 
           const dateObj = new Date(lead.createdAt);
           const dateKey = dateObj.toISOString().split("T")[0];
+          const sourceType = getLeadSourceType(lead);
 
           grouped[dateKey] = (grouped[dateKey] || 0) + 1;
-
-          const sourceType = getLeadSourceType(lead);
           sourceMap[sourceType] = (sourceMap[sourceType] || 0) + 1;
-
-          if (dateObj >= oneWeekAgo) weekCount++;
         });
-
-        setWeekLeads(weekCount);
-
-        const normalizeDateKey = (key) => {
-          if (!key) return "";
-
-          const stringKey = String(key);
-
-          if (stringKey.length === 8 && !stringKey.includes("-")) {
-            return `${stringKey.slice(0, 4)}-${stringKey.slice(
-              4,
-              6
-            )}-${stringKey.slice(6, 8)}`;
-          }
-
-          return stringKey;
-        };
 
         const gaDaily = [...(ga?.daily || [])].sort(
           (a, b) =>
@@ -235,12 +333,11 @@ const Stats = ({ user, onLogout }) => {
             new Date(normalizeDateKey(b.dateKey))
         );
 
-        const gaMap = {};
-
-        gaDaily.forEach((day) => {
+        const gaMap = gaDaily.reduce((map, day) => {
           const normalizedKey = normalizeDateKey(day.dateKey);
-          gaMap[normalizedKey] = Number(day.activeUsers) || 0;
-        });
+          map[normalizedKey] = Number(day.activeUsers) || 0;
+          return map;
+        }, {});
 
         let chartData = [];
 
@@ -266,7 +363,7 @@ const Stats = ({ user, onLogout }) => {
           const days = Number(selectedRange);
           const today = new Date();
 
-          for (let i = days - 1; i >= 0; i--) {
+          for (let i = days - 1; i >= 0; i -= 1) {
             const date = new Date();
             date.setDate(today.getDate() - i);
 
@@ -287,37 +384,24 @@ const Stats = ({ user, onLogout }) => {
 
         setLeadTrendData(chartData);
 
-        const formatSourceName = (source) => {
-          const normalized = String(source || "").toLowerCase();
-
-          if (normalized === "webform") return "Web Form";
-          if (normalized === "survey") return "Survey";
-          if (normalized === "chatbot") return "Chatbot";
-
-          return source || "Other";
-        };
-
         const totalSourceCount = Object.values(sourceMap).reduce(
           (sum, count) => sum + count,
           0
         );
 
-        const pieData = Object.keys(sourceMap).map((key) => {
-          const value = sourceMap[key];
-
-          return {
+        setSourceData(
+          Object.keys(sourceMap).map((key) => ({
+            key,
             name: formatSourceName(key),
-            value,
+            value: sourceMap[key],
             percent:
               totalSourceCount > 0
-                ? Math.round((value / totalSourceCount) * 100)
+                ? Math.round((sourceMap[key] / totalSourceCount) * 100)
                 : 0,
-          };
-        });
-
-        setSourceData(pieData);
-      } catch (err) {
-        console.error("Error loading stats:", err);
+          }))
+        );
+      } catch (error) {
+        console.error("Error loading stats:", error);
       } finally {
         setLoading(false);
       }
@@ -325,60 +409,6 @@ const Stats = ({ user, onLogout }) => {
 
     fetchStats();
   }, [selectedCommunity, selectedRange]);
-
-  const generateRecommendations = () => {
-    const visitors = gaData?.totals?.activeUsers || 0;
-    const leads = totalLeads;
-    const conversionRate = visitors > 0 ? (leads / visitors) * 100 : 0;
-
-    const topSource = [...sourceData].sort((a, b) => b.value - a.value)[0];
-
-    const recommendations = [];
-
-    if (visitors > 30 && conversionRate < 3) {
-      recommendations.push({
-        title: "Improve Lead Conversion",
-        insight: `${visitors} visitors but only ${leads} leads.`,
-        recommendation:
-          "Improve CTA, simplify forms, or offer a guide before asking for contact info.",
-      });
-    }
-
-    if (visitors > 50 && leads === 0) {
-      recommendations.push({
-        title: "Traffic Not Converting",
-        insight: `${visitors} visitors with zero leads.`,
-        recommendation:
-          "Move chatbot earlier and highlight scheduling or pricing faster.",
-      });
-    }
-
-    if (visitors < 20) {
-      recommendations.push({
-        title: "Increase Traffic",
-        insight: `Only ${visitors} visitors.`,
-        recommendation: "Focus on SEO, local pages, and paid campaigns.",
-      });
-    }
-
-    if (topSource) {
-      recommendations.push({
-        title: "Top Lead Source",
-        insight: `${topSource.name} is your strongest lead source.`,
-        recommendation: "Double down on this channel and optimize it further.",
-      });
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push({
-        title: "Performance Stable",
-        insight: "Your traffic and leads look healthy.",
-        recommendation: "Keep monitoring. More insights will appear as data grows.",
-      });
-    }
-
-    return recommendations;
-  };
 
   return (
     <div className="stats-page">
@@ -394,20 +424,32 @@ const Stats = ({ user, onLogout }) => {
           </div>
 
           <div className="stats-actions">
-            <input
-              type="text"
-              placeholder="Enter report name"
-              value={reportName}
-              onChange={(e) => setReportName(e.target.value)}
-              style={{ padding: "6px 10px" }}
-            />
+            <div
+              className={`report-name-field ${
+                savedReportName ? "is-saved" : ""
+              }`}
+            >
+              <input
+                type="text"
+                placeholder="Enter report name"
+                value={reportName}
+                onChange={handleReportNameChange}
+              />
 
-            <button className="stats-primary-button" onClick={handleSaveReport}>
-              Save Report
-            </button>
+              {reportName.trim() && (
+                <button
+                  type="button"
+                  className="report-name-save-btn"
+                  onClick={handleSaveReportName}
+                  aria-label="Save report name"
+                >
+                  {savedReportName ? "Saved ✓" : "Save"}
+                </button>
+              )}
+            </div>
 
-            <button className="stats-primary-button" onClick={handleSendPdf}>
-              Send As PDF
+            <button className="stats-primary-button" onClick={handleGeneratePdf}>
+              Generate Report
             </button>
           </div>
         </section>
@@ -415,7 +457,7 @@ const Stats = ({ user, onLogout }) => {
         <section className="stats-filters">
           <select
             value={selectedRange}
-            onChange={(e) => setSelectedRange(e.target.value)}
+            onChange={(event) => setSelectedRange(event.target.value)}
           >
             <option value="30">Last 30 days</option>
             <option value="7">Last 7 days</option>
@@ -424,12 +466,12 @@ const Stats = ({ user, onLogout }) => {
 
           <select
             value={selectedCommunity}
-            onChange={(e) => setSelectedCommunity(e.target.value)}
+            onChange={(event) => setSelectedCommunity(event.target.value)}
           >
             <option value="all">Any community or group</option>
 
-            {communities.map((community, index) => (
-              <option key={index} value={community}>
+            {communities.map((community) => (
+              <option key={community} value={community}>
                 {community}
               </option>
             ))}
@@ -438,6 +480,8 @@ const Stats = ({ user, onLogout }) => {
           <select>
             <option>Filter Traffic Sources</option>
             <option>Chatbot</option>
+            <option>Survey</option>
+            <option>Web Form</option>
           </select>
 
           <select>
@@ -447,7 +491,7 @@ const Stats = ({ user, onLogout }) => {
         </section>
 
         <section className="stats-tabs">
-          {tabs.map((item) => (
+          {TABS.map((item) => (
             <button
               key={item}
               type="button"
@@ -520,8 +564,8 @@ const Stats = ({ user, onLogout }) => {
                     subtext="Converted leads"
                     icon={House}
                     variant="green"
-                  />                
-                  </section>
+                  />
+                </section>
 
                 <section className="stats-chart-grid">
                   <div className="stats-card">
@@ -583,12 +627,10 @@ const Stats = ({ user, onLogout }) => {
                             outerRadius={100}
                             legendType="circle"
                           >
-                            {sourceData.map((entry, index) => (
+                            {sourceData.map((entry) => (
                               <Cell
-                                key={`cell-${index}`}
-                                fill={
-                                  SOURCE_COLORS[entry.name.toLowerCase().replace(" ", "")] || "#94a3b8"
-                                }
+                                key={entry.key}
+                                fill={SOURCE_COLORS[entry.key] || SOURCE_COLORS.other}
                               />
                             ))}
                           </Pie>
@@ -599,7 +641,6 @@ const Stats = ({ user, onLogout }) => {
                             iconType="circle"
                             formatter={(value, entry) => {
                               const percent = entry?.payload?.percent ?? 0;
-
                               return `${value}: ${percent}%`;
                             }}
                             wrapperStyle={{
@@ -619,8 +660,8 @@ const Stats = ({ user, onLogout }) => {
 
             {activeTabName === "Insights" && (
               <section className="stats-insights-grid">
-                {generateRecommendations().map((item, index) => (
-                  <div key={index} className="stats-insight-card">
+                {generateRecommendations().map((item) => (
+                  <div key={item.title} className="stats-insight-card">
                     <p className="stats-insight-label">AI Recommendation</p>
                     <h3>{item.title}</h3>
                     <p>
@@ -648,10 +689,10 @@ const Stats = ({ user, onLogout }) => {
               />
             )}
 
-            {activeTabName === "Saved Reports" && (
-              <PlaceholderTab
-                title="Saved Reports"
-                description="Saved PDF reports, scheduled exports, and shared analytics reports will appear here."
+            {activeTabName === "Report History" && (
+              <ReportHistory
+                reportHistory={reportHistory}
+                onDeleteReport={handleDeleteReport}
               />
             )}
           </>
@@ -679,6 +720,57 @@ const PlaceholderTab = ({ title, description }) => (
     <p>{description}</p>
     <div>Coming soon</div>
   </div>
+);
+
+const ReportHistory = ({ reportHistory, onDeleteReport }) => (
+  <section className="report-history-card">
+    <div className="report-history-header">
+      <div>
+        <h2>Report History</h2>
+        <p>Recently generated PDF reports from this browser.</p>
+      </div>
+    </div>
+
+    {reportHistory.length === 0 ? (
+      <div className="report-history-empty">
+        <h3>No reports generated yet</h3>
+        <p>Generate a report to see it listed here.</p>
+      </div>
+    ) : (
+      <div className="report-history-list">
+        {reportHistory.map((report) => (
+          <div key={report.id} className="report-history-item">
+            <div>
+              <h3>{report.reportName}</h3>
+
+              <p>
+                {report.fileType} • {new Date(report.createdAt).toLocaleDateString()}
+              </p>
+
+              <p className="report-history-meta">
+                Range:{" "}
+                {report.selectedRange === "all"
+                  ? "All time"
+                  : `Last ${report.selectedRange} days`}{" "}
+                • Community:{" "}
+                {report.selectedCommunity === "all"
+                  ? "Any community or group"
+                  : report.selectedCommunity}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="report-delete-button"
+              onClick={() => onDeleteReport(report.id)}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
 );
 
 const formatNumber = (num) => {
