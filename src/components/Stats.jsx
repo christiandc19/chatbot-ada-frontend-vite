@@ -3,8 +3,17 @@ import Header from "./Header";
 import { getAnalyticsTraffic } from "../services/analyticsService";
 import apiService from "../services/apiService";
 import { generateDashboardPdf } from "../utils/pdfGenerator";
-
 import "./Stats.css";
+
+import {
+  Users,
+  UserRoundCheck,
+  ClipboardList,
+  MessageSquareText,
+  CheckCircle2,
+  CalendarDays,
+  House,
+} from "lucide-react";
 
 import {
   AreaChart,
@@ -18,6 +27,7 @@ import {
   PieChart,
   Pie,
   Legend,
+  Cell,
 } from "recharts";
 
 const tabs = [
@@ -27,6 +37,12 @@ const tabs = [
   "Instant Answers Analytics",
   "Saved Reports",
 ];
+
+const SOURCE_COLORS = {
+  chatbot: "#2564ebce",
+  survey: "#16a34ac2",
+  webform: "#f97416b6",
+};
 
 const Stats = ({ user, onLogout }) => {
   const [leadTrendData, setLeadTrendData] = useState([]);
@@ -41,25 +57,39 @@ const Stats = ({ user, onLogout }) => {
   const [selectedRange, setSelectedRange] = useState("30");
   const [reportName, setReportName] = useState("");
   const [email, setEmail] = useState("");
-  
+
+  // Lead source KPI counts.
+  const [webformLeads, setWebformLeads] = useState(0);
+  const [chatLeads, setChatLeads] = useState(0);
+  const [surveyLeads, setSurveyLeads] = useState(0);
+
   // Counts leads marked as Tour Scheduled.
   const [toursScheduled, setToursScheduled] = useState(0);
 
   // Counts leads marked as Converted / Move-in.
   const [moveIns, setMoveIns] = useState(0);
 
+  const getLeadSourceType = (lead) => {
+    const source = (lead?.source || lead?.leadSource || "").toLowerCase();
 
+    if (source.includes("webform")) return "webform";
+    if (source.includes("survey")) return "survey";
+    if (source.includes("chat") || source.includes("chatbot")) return "chatbot";
 
-  // Add Send PDF function
+    // Match All Conversations behavior: blank source defaults to Chatbot.
+    if (!source) return "chatbot";
+
+    return "other";
+  };
 
   const handleSendPdf = async () => {
     try {
       const pdf = await generateDashboardPdf("report-content");
 
-      // 🔽 TEMP: download first (TEST THIS FIRST)
+      // TEMP: download first while backend report email endpoint is not connected yet.
       pdf.save(`${reportName || "web-analytics-report"}.pdf`);
 
-      // 🔽 LATER (when backend ready)
+      // LATER: when backend is ready, send the PDF blob to an email endpoint.
       /*
       const blob = pdf.output("blob");
 
@@ -69,51 +99,36 @@ const Stats = ({ user, onLogout }) => {
 
       await apiService.post("/api/reports/send-pdf", formData);
       */
-
     } catch (err) {
       console.error(err);
       alert("Failed to generate PDF");
     }
   };
 
+  const handleSaveReport = () => {
+    try {
+      const savedReports = JSON.parse(localStorage.getItem("savedReports")) || [];
 
-  // Add Save Report function
+      const newReport = {
+        id: Date.now(),
+        reportName: reportName || "Untitled Report",
+        selectedRange,
+        selectedCommunity,
+        activeTabName,
+        createdAt: new Date().toISOString(),
+      };
 
-    // This will save:
-    // report name
-    // date range
-    // community filter
-    // current tab
-    // created date
-    // Later, once your backend has /api/reports/save, we can switch it from localStorage to database saving.
+      localStorage.setItem(
+        "savedReports",
+        JSON.stringify([newReport, ...savedReports])
+      );
 
-
-    const handleSaveReport = () => {
-      try {
-        const savedReports =
-          JSON.parse(localStorage.getItem("savedReports")) || [];
-
-        const newReport = {
-          id: Date.now(),
-          reportName: reportName || "Untitled Report",
-          selectedRange,
-          selectedCommunity,
-          activeTabName,
-          createdAt: new Date().toISOString(),
-        };
-
-        localStorage.setItem(
-          "savedReports",
-          JSON.stringify([newReport, ...savedReports])
-        );
-
-        alert("Report saved!");
-      } catch (err) {
-        console.error(err);
-        alert("Failed to save report");
-      }
-    };
-
+      alert("Report saved!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save report");
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -127,9 +142,7 @@ const Stats = ({ user, onLogout }) => {
 
         const uniqueCommunities = [
           ...new Set(
-            leads.map(
-              (lead) => lead.communityName || lead.community || "Unknown"
-            )
+            leads.map((lead) => lead.communityName || lead.community || "Unknown")
           ),
         ];
 
@@ -146,6 +159,23 @@ const Stats = ({ user, onLogout }) => {
 
         setTotalLeads(filteredLeads.length);
 
+        // Count lead source KPI cards.
+        const webformCount = filteredLeads.filter(
+          (lead) => getLeadSourceType(lead) === "webform"
+        ).length;
+
+        const surveyCount = filteredLeads.filter(
+          (lead) => getLeadSourceType(lead) === "survey"
+        ).length;
+
+        const chatCount = filteredLeads.filter(
+          (lead) => getLeadSourceType(lead) === "chatbot"
+        ).length;
+
+        setWebformLeads(webformCount);
+        setSurveyLeads(surveyCount);
+        setChatLeads(chatCount);
+
         // Count how many filtered leads have the status "Tour Scheduled".
         const tourScheduledCount = filteredLeads.filter(
           (lead) => (lead.status || "").toLowerCase() === "tour scheduled"
@@ -157,7 +187,6 @@ const Stats = ({ user, onLogout }) => {
           (lead) => (lead.status || "").toLowerCase() === "converted"
         ).length;
 
-        // Save the counts so the KPI cards can display them.
         setToursScheduled(tourScheduledCount);
         setMoveIns(moveInCount);
 
@@ -177,8 +206,8 @@ const Stats = ({ user, onLogout }) => {
 
           grouped[dateKey] = (grouped[dateKey] || 0) + 1;
 
-          const source = lead.source || "Chatbot";
-          sourceMap[source] = (sourceMap[source] || 0) + 1;
+          const sourceType = getLeadSourceType(lead);
+          sourceMap[sourceType] = (sourceMap[sourceType] || 0) + 1;
 
           if (dateObj >= oneWeekAgo) weekCount++;
         });
@@ -258,10 +287,33 @@ const Stats = ({ user, onLogout }) => {
 
         setLeadTrendData(chartData);
 
-        const pieData = Object.keys(sourceMap).map((key) => ({
-          name: key,
-          value: sourceMap[key],
-        }));
+        const formatSourceName = (source) => {
+          const normalized = String(source || "").toLowerCase();
+
+          if (normalized === "webform") return "Web Form";
+          if (normalized === "survey") return "Survey";
+          if (normalized === "chatbot") return "Chatbot";
+
+          return source || "Other";
+        };
+
+        const totalSourceCount = Object.values(sourceMap).reduce(
+          (sum, count) => sum + count,
+          0
+        );
+
+        const pieData = Object.keys(sourceMap).map((key) => {
+          const value = sourceMap[key];
+
+          return {
+            name: formatSourceName(key),
+            value,
+            percent:
+              totalSourceCount > 0
+                ? Math.round((value / totalSourceCount) * 100)
+                : 0,
+          };
+        });
 
         setSourceData(pieData);
       } catch (err) {
@@ -321,8 +373,7 @@ const Stats = ({ user, onLogout }) => {
       recommendations.push({
         title: "Performance Stable",
         insight: "Your traffic and leads look healthy.",
-        recommendation:
-          "Keep monitoring. More insights will appear as data grows.",
+        recommendation: "Keep monitoring. More insights will appear as data grows.",
       });
     }
 
@@ -358,7 +409,7 @@ const Stats = ({ user, onLogout }) => {
             <button className="stats-primary-button" onClick={handleSendPdf}>
               Send As PDF
             </button>
-    </div>
+          </div>
         </section>
 
         <section className="stats-filters">
@@ -419,33 +470,58 @@ const Stats = ({ user, onLogout }) => {
                     label="Visitors"
                     value={gaData?.totals?.activeUsers || 0}
                     subtext="Live from Google Analytics"
+                    icon={Users}
+                    variant="blue"
                   />
 
                   <Metric
-                    label="Interactions"
-                    value={totalLeads * 3 || 0}
-                    subtext="Estimated chatbot activity"
-                  />
-
-                  <Metric
-                    label="Leads"
+                    label="Total Leads"
                     value={totalLeads}
-                    subtext={`${weekLeads} this week`}
+                    subtext="All lead sources"
+                    icon={UserRoundCheck}
+                    variant="purple"
+                  />
+
+                  <Metric
+                    label="Webform Leads"
+                    value={webformLeads}
+                    subtext="From web forms"
+                    icon={ClipboardList}
+                    variant="green"
+                  />
+
+                  <Metric
+                    label="Chat Leads"
+                    value={chatLeads}
+                    subtext="From chatbot"
+                    icon={MessageSquareText}
+                    variant="orange"
+                  />
+
+                  <Metric
+                    label="Survey Leads"
+                    value={surveyLeads}
+                    subtext="From assessments"
+                    icon={CheckCircle2}
+                    variant="teal"
                   />
 
                   <Metric
                     label="Tours Scheduled"
                     value={toursScheduled}
                     subtext="Based on lead status"
+                    icon={CalendarDays}
+                    variant="blue"
                   />
 
                   <Metric
                     label="Move-ins"
                     value={moveIns}
-                    subtext="Based on converted leads"
-                  />
-
-                </section>
+                    subtext="Converted leads"
+                    icon={House}
+                    variant="green"
+                  />                
+                  </section>
 
                 <section className="stats-chart-grid">
                   <div className="stats-card">
@@ -455,10 +531,10 @@ const Stats = ({ user, onLogout }) => {
                       <p className="stats-empty">No analytics data available yet.</p>
                     ) : (
                       <ResponsiveContainer width="100%" height={320}>
-                          <AreaChart
-                            data={leadTrendData}
-                            margin={{ top: 10, right: 10, left: -30, bottom: 0 }}
-                          >
+                        <AreaChart
+                          data={leadTrendData}
+                          margin={{ top: 10, right: 10, left: -30, bottom: 0 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" />
                           <YAxis allowDecimals={false} />
@@ -504,12 +580,35 @@ const Stats = ({ user, onLogout }) => {
                             data={sourceData}
                             dataKey="value"
                             nameKey="name"
-                            outerRadius={110}
-                            label={({ name, percent }) =>
-                              `${name}: ${(percent * 100).toFixed(0)}%`
-                            }
+                            outerRadius={100}
+                            legendType="circle"
+                          >
+                            {sourceData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  SOURCE_COLORS[entry.name.toLowerCase().replace(" ", "")] || "#94a3b8"
+                                }
+                              />
+                            ))}
+                          </Pie>
+
+                          <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            formatter={(value, entry) => {
+                              const percent = entry?.payload?.percent ?? 0;
+
+                              return `${value}: ${percent}%`;
+                            }}
+                            wrapperStyle={{
+                              paddingTop: "18px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                              color: "#475569",
+                            }}
                           />
-                          <Legend />
                         </PieChart>
                       </ResponsiveContainer>
                     )}
@@ -562,8 +661,12 @@ const Stats = ({ user, onLogout }) => {
   );
 };
 
-const Metric = ({ label, value, subtext }) => (
-  <div className="stats-metric-card">
+const Metric = ({ label, value, subtext, icon: Icon, variant = "blue" }) => (
+  <div className={`stats-metric-card metric-${variant}`}>
+    <div className="stats-metric-icon">
+      {Icon && <Icon size={22} strokeWidth={2.4} />}
+    </div>
+
     <p className="stats-metric-label">{label}</p>
     <p className="stats-metric-value">{formatNumber(value)}</p>
     <p className="stats-metric-subtext">{subtext}</p>
