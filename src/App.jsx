@@ -91,8 +91,8 @@ function App() {
 
       <main className="dashboard-content">
         <Routes>
-          <Route path="/" element={<Navigate to="/conversations" replace />} />
-          <Route path="/login" element={<Navigate to="/conversations" replace />} />
+          <Route path="/" element={<Navigate to="/stats" replace />} />          
+          <Route path="/login" element={<Navigate to="/stats" replace />} />          
           <Route path="/stats" element={<Stats user={user} onLogout={handleLogout} />} />
           <Route path="/conversations" element={<Conversations user={user} onLogout={handleLogout} />} />
           <Route path="/conversations/:leadId" element={<ChatHistory user={user} onLogout={handleLogout} />} />
