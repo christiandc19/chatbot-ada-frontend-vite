@@ -99,9 +99,26 @@ const Conversations = ({ user, onLogout }) => {
     return rawSource;
   };
 
+  
   const getSourceClass = (source) => {
     return `source-badge source-${source.toLowerCase().replace(/\s+/g, "-")}`;
   };
+
+
+  // Returns the saved lead status from the backend.
+  // Defaults to "New Lead" when older leads do not have a status yet.
+  const getLeadStatus = (lead) => {
+    return lead?.status || lead?.Status || "New Lead";
+  };
+
+  // Creates a CSS class for each status badge.
+  // Example: "Tour Scheduled" becomes "status-tour-scheduled".
+  const getStatusClass = (status) => {
+    return `lead-status-badge status-${String(status)
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`;
+  };
+
 
   // Load leads and poll for new leads so the dashboard stays fresh.
   useEffect(() => {
@@ -471,8 +488,8 @@ const weeklySurveyLeads = conversations.filter(
     if (filteredConversations.length === 0) {
       return (
         <tr>
-          <td colSpan="5" className="no-data">
-            {searchQuery ? "No leads match your search." : "No leads found."}
+        <td colSpan="6" className="no-data">            
+          {searchQuery ? "No leads match your search." : "No leads found."}
           </td>
         </tr>
       );
@@ -523,11 +540,17 @@ const weeklySurveyLeads = conversations.filter(
 
           <td>{conv.community || "N/A"}</td>
 
-          <td>
-            <span className={getSourceClass(leadSource)}>{leadSource}</span>
-          </td>
+            <td>
+              <span className={getSourceClass(leadSource)}>{leadSource}</span>
+            </td>
 
-          <td className="created-cell">
+            <td>
+              <span className={getStatusClass(getLeadStatus(conv))}>
+                {getLeadStatus(conv)}
+              </span>
+            </td>
+
+            <td className="created-cell">
             <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
             <span className="created-time">
               {conv.created?.time || formatLocalTime(conv.createdAt)}
@@ -873,8 +896,9 @@ const weeklySurveyLeads = conversations.filter(
           <th>CONTACT</th>
           <th>COMMUNITY</th>
           <th>SOURCE</th>
-          <th>CREATED</th>
-        </tr>
+          <th>STATUS</th>
+          <th>CREATED</th>        
+          </tr>
       </thead>
 
       <tbody>{renderLeadRows()}</tbody>

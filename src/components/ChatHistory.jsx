@@ -34,14 +34,28 @@ const ChatHistory = ({ user, onLogout }) => {
   const [notes, setNotes] = useState([]);
   const [activeTab, setActiveTab] = useState("notes");
 
-  // New: stores the selected assigned user ID from the dropdown
-  const [assignedUserId, setAssignedUserId] = useState("");
-
   // New: stores dashboard users for the "Assigned To" dropdown
   const [users, setUsers] = useState([]);
 
-  // New: stores the selected lead priority from the dropdown
-  const [selectedPriority, setSelectedPriority] = useState("Medium");
+
+// =========================================
+// Lead Overview Draft State
+// Stores unsaved Lead Overview changes locally
+// until the user clicks Save Changes.
+// =========================================
+  const [leadOverviewDraft, setLeadOverviewDraft] = useState({
+  status: "New Lead",
+  assignedUserId: "",
+  priority: "Medium",
+});
+
+// Tracks if the user changed anything
+// so we can enable/disable the Save button.
+const [hasOverviewChanges, setHasOverviewChanges] = useState(false);
+
+// Shows saving state on the button
+const [isSavingOverview, setIsSavingOverview] = useState(false);
+
 
   // New: controls whether the custom Priority dropdown menu is open
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
@@ -153,6 +167,7 @@ const ChatHistory = ({ user, onLogout }) => {
 
         const data = await apiService.getConversationsByLead(leadId);
 
+
         if (!isPolling) {
           setLeadDetails(data);
 
@@ -231,23 +246,50 @@ const ChatHistory = ({ user, onLogout }) => {
     setShowStatusMenu((prev) => !prev);
   };
 
-  const handleStatusChange = async (newStatus) => {
-    // Update the UI immediately so the dropdown feels responsive.
-    setLeadDetails((prev) => ({
-      ...(prev || {}),
+  // Updates the Status dropdown locally only.
+  // Nothing is saved to the backend until the user clicks Save Changes.
+  const handleStatusChange = (newStatus) => {
+    setLeadOverviewDraft((prev) => ({
+      ...prev,
       status: newStatus,
     }));
 
+    setHasOverviewChanges(true);
     setShowStatusMenu(false);
+  };
 
-    // If you already have this backend method in apiService, this will persist it.
-    // If not, the UI will still update locally and you can connect the API later.
+  // Saves all Lead Overview fields together:
+  // Status + Assigned To + Priority.
+  const handleSaveLeadOverview = async () => {
     try {
-      if (typeof apiService.updateLeadStatus === "function") {
-        await apiService.updateLeadStatus(leadId, newStatus);
-      }
+      setIsSavingOverview(true);
+
+      await apiService.updateLead(leadId, {
+        Email: leadDetails?.email || "",
+        FirstName: leadDetails?.firstName || "",
+        LastName: leadDetails?.lastName || "",
+        Phone: leadDetails?.phone || "",
+
+        // Editable Lead Overview fields.
+        Status: leadOverviewDraft.status,
+        AssignedUserId: leadOverviewDraft.assignedUserId || null,
+        Priority: leadOverviewDraft.priority,
+      });
+
+      // Keep this page updated after a successful save.
+      setLeadDetails((prev) => ({
+        ...(prev || {}),
+        status: leadOverviewDraft.status,
+        assignedUserId: leadOverviewDraft.assignedUserId,
+        priority: leadOverviewDraft.priority,
+      }));
+
+      setHasOverviewChanges(false);
     } catch (err) {
-      console.error("Failed to update lead status:", err);
+      console.error("Failed to save lead overview:", err);
+      alert("Failed to save lead overview. Please try again.");
+    } finally {
+      setIsSavingOverview(false);
     }
   };
 
@@ -306,7 +348,8 @@ const ChatHistory = ({ user, onLogout }) => {
     ? "Chatbot Lead"
     : "Chatbot Lead";
 
-  const status = leadDetails?.status || latestMessage?.status || "New Lead";
+  // Current editable status shown in Lead Overview
+    const status = leadOverviewDraft.status;
 
   const inquiryType =
     leadDetails?.inquiryType ||
@@ -341,14 +384,31 @@ const ChatHistory = ({ user, onLogout }) => {
     rawMessage ||
     "No message provided.";
 
-  const assignedTo =
-    leadDetails?.assignedTo || leadDetails?.assignedUserName || "Unassigned";
+  // New: keeps the Lead Overview draft in sync when lead details load.
+  // =========================================
+  // Sync saved backend lead values into
+  // the editable Lead Overview form.
+  // =========================================
+  useEffect(() => {
+    if (!leadDetails) return;
 
-  const priority = leadDetails?.priority || leadDetails?.leadPriority || "Medium";
-  // New: keeps the priority dropdown in sync when lead details load
-    useEffect(() => {
-      setSelectedPriority(priority || "Medium");
-    }, [priority]);
+    setLeadOverviewDraft({
+      status:
+        leadDetails?.status ||
+        leadDetails?.Status ||
+        "New Lead",
+
+      assignedUserId:
+        leadDetails?.assignedUserId ||
+        leadDetails?.AssignedUserId ||
+        "",
+
+      priority:
+        leadDetails?.priority ||
+        leadDetails?.Priority ||
+        "Medium",
+    });
+  }, [leadDetails]);
 
   const surveyDetails = leadDetails?.details || leadDetails?.Details || null;
 
@@ -795,14 +855,16 @@ const ChatHistory = ({ user, onLogout }) => {
                 {/* New: dropdown for assigning this lead to a dashboard user */}
                 <select
                   className="assigned-user-select"
-                  value={assignedUserId}                  
+                  value={leadOverviewDraft.assignedUserId}
                   onChange={(e) => {
-                    // New: save the selected user ID in React state
-                    // This makes the dropdown stay on the selected option.
-                    setAssignedUserId(e.target.value);
+                    // Update local draft only.
+                    // The change is saved after clicking Save Changes.
+                    setLeadOverviewDraft((prev) => ({
+                      ...prev,
+                      assignedUserId: e.target.value,
+                    }));
 
-                    // New: temporary test log so we can confirm it works.
-                    console.log("Selected user ID:", e.target.value);
+                    setHasOverviewChanges(true);
                   }}                >
                   {/* Default option when no user is assigned */}
                   <option value="">Unassigned</option>
@@ -827,13 +889,13 @@ const ChatHistory = ({ user, onLogout }) => {
                   {/* Dropdown trigger button */}
                   <button
                     type="button"
-                    className={`priority-select priority-${selectedPriority.toLowerCase()}`}
+                    className={`priority-select priority-${leadOverviewDraft.priority.toLowerCase()}`}
                     onClick={() => {
                       // Opens/closes the dropdown menu
                       setShowPriorityMenu((prev) => !prev);
                     }}
                   >
-                    <span>{selectedPriority}</span>
+                    <span>{leadOverviewDraft.priority}</span>
 
                     <span className="priority-caret">⌄</span>
                   </button>
@@ -849,14 +911,15 @@ const ChatHistory = ({ user, onLogout }) => {
                           className="priority-option"
                           onClick={() => {
 
-                            // Updates selected priority visually
-                            setSelectedPriority(option);
+                            // Update local draft only.
+                            // The change is saved after clicking Save Changes.
+                            setLeadOverviewDraft((prev) => ({
+                              ...prev,
+                              priority: option,
+                            }));
 
-                            // Closes dropdown after selection
+                            setHasOverviewChanges(true);
                             setShowPriorityMenu(false);
-
-                            // Temporary test log
-                            console.log("Selected priority:", option);
                           }}
                         >
                           {option}
@@ -865,8 +928,19 @@ const ChatHistory = ({ user, onLogout }) => {
                     </div>
                   )}
                 </div>
-              </div>            
-              
+              </div>
+
+                {/* Save button for Lead Overview draft changes */}
+                <div className="lead-overview-save-row">
+                  <button
+                    type="button"
+                    className="save-overview-btn"
+                    onClick={handleSaveLeadOverview}
+                    disabled={!hasOverviewChanges || isSavingOverview}
+                  >
+                    {isSavingOverview ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
               </div>
 
               <div className="details-card">
