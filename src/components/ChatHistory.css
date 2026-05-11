@@ -1124,3 +1124,47 @@
     width: 100%;
   }
 }
+
+/* =========================================
+   Save Lead Overview Button
+========================================= */
+
+.lead-overview-save-row {
+  padding: 16px;
+  border-top: 1px solid #eef2f7;
+}
+
+.save-overview-btn {
+  width: 100%;
+  height: 42px;
+  border: none;
+  border-radius: 14px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.18);
+}
+
+.save-overview-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #1d4ed8;
+}
+
+.save-overview-btn:disabled {
+  opacity: 0.55;
+
+  /* Cleaner SaaS behavior */
+  cursor: default;
+
+  transform: none;
+  box-shadow: none;
+
+  background: #9db5f2;
+}
+
+.save-overview-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}

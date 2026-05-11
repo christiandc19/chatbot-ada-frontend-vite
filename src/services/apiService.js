@@ -249,6 +249,68 @@ async login(email, password) {
     return response.json();
   }
 
+    // Updates only the lead status from the single-lead page.
+    // This reuses the existing PUT /leads/{id} endpoint.
+    // We first load the current lead so we do not accidentally erase
+    // required fields like Email, FirstName, LastName, or Phone.
+    async updateLeadStatus(leadId, status) {
+      const existingLead = await this.getConversationsByLead(leadId);
+
+      const payload = {
+        Email: existingLead.email || "",
+        FirstName: existingLead.firstName || "",
+        LastName: existingLead.lastName || "",
+        Phone: existingLead.phone || "",
+        Status: status,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
+        method: "PUT",
+        headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(await this._readError(response, "Failed to update lead status"));
+      }
+
+      return this._readJsonOrSuccess(response, "Lead status updated successfully");
+    }
+
+
+
+
+// =========================================
+// Updates the Lead Overview section.
+// Saves Status + Assigned To + Priority
+// together in one request.
+// =========================================
+async updateLead(leadId, leadData) {
+  const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
+    method: "PUT",
+
+    headers: this._buildAdminHeaders({
+      "Content-Type": "application/json",
+    }),
+
+    body: JSON.stringify(leadData),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await this._readError(response, "Failed to update lead")
+    );
+  }
+
+  return this._readJsonOrSuccess(
+    response,
+    "Lead updated successfully"
+  );
+}
+
+
+
+
   async getLeads() {
     try {
       const response = await fetch(`${API_BASE_URL}/leads`, {
