@@ -1,3 +1,4 @@
+/* Cleaned Conversations.css - all conversations page */
 /* Page */
 .conversations-container {
   min-height: 100vh;
@@ -117,6 +118,66 @@
   backdrop-filter: blur(12px);
   overflow: visible;
 }
+
+/* Left side of toolbar: search + filter dropdown */
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+
+/* Filter dropdown beside the search box */
+.lead-filter-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Hidden because we use the browser's native dropdown caret */
+.lead-filter-icon {
+  display: none;
+}
+
+.lead-filter-select {
+  height: 50px;
+  min-width: 180px;
+  padding: 0 38px 0 18px;
+
+  border: 1px solid #d7e2ef;
+  border-radius: 16px;
+
+  background-color: #ffffff;
+  color: #1f1e1e;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  outline: none;
+
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.lead-filter-select:hover {
+  transform: translateY(-1px);
+  border-color: #c7d7ea;
+}
+
+.lead-filter-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+
+
+
 
 .search-box {
   position: relative;
@@ -321,34 +382,41 @@
   border-bottom: none;
 }
 
+
+/* Table Column Widths - 5 columns after removing Status */
 .conversations-table th:nth-child(1),
 .conversations-table td:nth-child(1) {
-  width: 24%;
+  width: 27%;
 }
 
 .conversations-table th:nth-child(2),
 .conversations-table td:nth-child(2) {
-  width: 24%;
+  width: 27%;
 }
 
 .conversations-table th:nth-child(3),
 .conversations-table td:nth-child(3) {
-  width: 13%;
+  width: 18%;
 }
 
 .conversations-table th:nth-child(4),
 .conversations-table td:nth-child(4) {
-  width: 13%;
+  width: 14%;
 }
 
 .conversations-table th:nth-child(5),
 .conversations-table td:nth-child(5) {
-  width: 12%;
+  width: 14%;
 }
 
-.conversations-table th:nth-child(6),
-.conversations-table td:nth-child(6) {
-  width: 14%;
+.conversations-table th,
+.conversations-table td {
+  text-align: left;
+}
+
+.conversations-table th:nth-child(5),
+.conversations-table td:nth-child(5) {
+  text-align: left;
 }
 
 /* Lead */
@@ -462,166 +530,6 @@
 .source-survey-form {
   background: #fff7ed;
   color: #c2410c;
-}
-
-/* Status Dropdown */
-.status-menu-wrapper {
-  position: relative;
-  width: fit-content;
-}
-
-.status-select {
-  min-width: 150px;
-  height: 34px;
-  padding: 0 10px 0 12px;
-
-  border: 1px solid transparent;
-  border-radius: 999px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-
-  white-space: nowrap;
-
-  cursor: pointer;
-}
-
-.status-caret {
-  position: relative;
-  top: -5px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  width: 14px;
-  height: 14px;
-
-  font-size: 12px;
-  line-height: 1;
-
-  opacity: 0.7;
-}
-
-.status-options-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-
-  z-index: 80;
-
-  width: 190px;
-  padding: 6px;
-
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-
-  background: #ffffff;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
-}
-
-.status-option {
-  width: 100%;
-  min-height: 34px;
-
-  padding: 0 10px;
-
-  border: none;
-  border-radius: 10px;
-
-  background: transparent;
-  color: #0f172a;
-
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1;
-
-  text-align: left;
-  cursor: pointer;
-}
-
-.status-option:hover {
-  background: #f8fafc;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex: 0 0 8px;
-}
-
-.status-dot-new {
-  background: #2563eb;
-}
-
-.status-dot-attempted-contact {
-  background: #c2410c;
-}
-
-.status-dot-contacted {
-  background: #92400e;
-}
-
-.status-dot-qualified {
-  background: #047857;
-}
-
-.status-dot-tour-scheduled {
-  background: #6d28d9;
-}
-
-.status-dot-converted {
-  background: #166534;
-}
-
-.status-dot-closed {
-  background: #475569;
-}
-
-.status-new {
-  background-color: #eff6ff;
-  color: #2563eb;
-}
-
-.status-attempted-contact {
-  background-color: #fff7ed;
-  color: #c2410c;
-}
-
-.status-contacted {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
-.status-qualified {
-  background-color: #ecfdf5;
-  color: #047857;
-}
-
-.status-tour-scheduled {
-  background-color: #f5f3ff;
-  color: #6d28d9;
-}
-
-.status-converted {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.status-closed {
-  background-color: #f1f5f9;
-  color: #475569;
 }
 
 /* States */
@@ -826,6 +734,66 @@
   padding-top: 8px;
 }
 
+/* ===============================
+   Lead Status Badge
+================================ */
+
+.lead-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 96px;
+  padding: 7px 12px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+/* Default / New Lead */
+.lead-status-badge.status-new-lead,
+.lead-status-badge.status-new {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Attempted Contact */
+.lead-status-badge.status-attempted-contact {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Contacted / Qualified */
+.lead-status-badge.status-contacted,
+.lead-status-badge.status-qualified {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+/* Tour Scheduled */
+.lead-status-badge.status-tour-scheduled {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+/* Converted */
+.lead-status-badge.status-converted {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Closed */
+.lead-status-badge.status-closed {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+
 /* Tablet */
 @media (max-width: 1100px) {
   .stats-grid {
@@ -834,7 +802,20 @@
 }
 
 /* Mobile */
+
 @media (max-width: 700px) {
+
+.toolbar-left {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+.lead-filter-select {
+  width: 100%;
+}
+
+
   .conversations-content {
     padding: 18px 14px 28px;
   }
@@ -903,12 +884,11 @@
     table-layout: fixed;
   }
 
+  /* On mobile, show Lead, Contact, and Created only. */
   .conversations-table th:nth-child(3),
   .conversations-table th:nth-child(4),
-  .conversations-table th:nth-child(5),
   .conversations-table td:nth-child(3),
-  .conversations-table td:nth-child(4),
-  .conversations-table td:nth-child(5) {
+  .conversations-table td:nth-child(4) {
     display: none;
   }
 
@@ -927,8 +907,8 @@
     width: 36%;
   }
 
-  .conversations-table th:nth-child(6),
-  .conversations-table td:nth-child(6) {
+  .conversations-table th:nth-child(5),
+  .conversations-table td:nth-child(5) {
     width: 20%;
   }
 
@@ -988,4 +968,34 @@
   .add-lead-actions {
     flex-direction: column-reverse;
   }
+}
+
+
+/* Cell Alignment Fix */
+.conversations-table th,
+.conversations-table td {
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.conversations-table td {
+  height: 64px;
+}
+
+.created-cell {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.created-cell span:first-child {
+  display: block;
+  font-weight: 600;
+}
+
+.created-time {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
 }

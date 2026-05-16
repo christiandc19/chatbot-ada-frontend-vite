@@ -1,14 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import "./ChatHistory.css";
 import Header from "./Header";
 import apiService from "../services/apiService";
 import { formatLocalTime } from "../utils/dateUtils";
 
+const statusOptions = [
+  "New Lead",
+  "Attempted Contact",
+  "Contacted",
+  "Qualified",
+  "Tour Scheduled",
+  "Converted",
+  "Closed",
+];
+
+// New: options used by the custom Priority dropdown
+const priorityOptions = ["Low", "Medium", "High", "Urgent"];
+
 const ChatHistory = ({ user, onLogout }) => {
   const { leadId } = useParams();
   const navigate = useNavigate();
 
+  // Core lead data
   const [messages, setMessages] = useState([]);
   const [leadDetails, setLeadDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,9 +34,49 @@ const ChatHistory = ({ user, onLogout }) => {
   const [notes, setNotes] = useState([]);
   const [activeTab, setActiveTab] = useState("notes");
 
+  // New: stores dashboard users for the "Assigned To" dropdown
+  const [users, setUsers] = useState([]);
+
+
+// =========================================
+// Lead Overview Draft State
+// Stores unsaved Lead Overview changes locally
+// until the user clicks Save Changes.
+// =========================================
+  const [leadOverviewDraft, setLeadOverviewDraft] = useState({
+  status: "New Lead",
+  assignedUserId: "",
+  priority: "Medium",
+});
+
+// Tracks if the user changed anything
+// so we can enable/disable the Save button.
+const [hasOverviewChanges, setHasOverviewChanges] = useState(false);
+
+// Shows saving state on the button
+const [isSavingOverview, setIsSavingOverview] = useState(false);
+
+
+  // New: controls whether the custom Priority dropdown menu is open
+  const [showPriorityMenu, setShowPriorityMenu] = useState(false);
+
+  // Status dropdown state
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [statusMenuPosition, setStatusMenuPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+
+  const statusButtonRef = useRef(null);
+
+  // New: used to detect clicks outside the Priority dropdown
+  const priorityMenuRef = useRef(null);
+
   const firstName = leadDetails?.firstName || "N/A";
   const lastName = leadDetails?.lastName || "N/A";
 
+  // Load locally saved notes for this lead.
   useEffect(() => {
     const savedNotes = localStorage.getItem(`lead-notes-${leadId}`);
 
@@ -30,12 +85,88 @@ const ChatHistory = ({ user, onLogout }) => {
     }
   }, [leadId]);
 
+  // Close the status dropdown when the user clicks outside of it.
+  useEffect(() => {
+      const handleClickOutsideStatusMenu = (event) => {
+      const clickedStatusButton = statusButtonRef.current?.contains(event.target);
+      const clickedStatusMenu = event.target.closest(".status-options-menu");
+
+      if (!clickedStatusButton && !clickedStatusMenu) {
+        setShowStatusMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutsideStatusMenu);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideStatusMenu);
+    };
+  }, []);
+
+
+      // =========================================
+      // Closes Priority dropdown when clicking
+      // anywhere outside the menu
+      // =========================================
+      useEffect(() => {
+
+        const handleClickOutsidePriorityMenu = (event) => {
+
+          // If user clicked OUTSIDE the priority dropdown,
+          // close the menu.
+          if (
+            priorityMenuRef.current &&
+            !priorityMenuRef.current.contains(event.target)
+          ) {
+            setShowPriorityMenu(false);
+          }
+        };
+
+        // Listen for clicks on the page
+        document.addEventListener(
+          "mousedown",
+          handleClickOutsidePriorityMenu
+        );
+
+        // Cleanup when component unmounts
+        return () => {
+          document.removeEventListener(
+            "mousedown",
+            handleClickOutsidePriorityMenu
+          );
+        };
+
+      }, []);
+
+  // New: loads dashboard users for the "Assigned To" dropdown
+    useEffect(() => {
+      const fetchUsers = async () => {
+        try {
+          // Calls apiService.js.
+          // We will add getUsers() in the next step.
+          const data = await apiService.getUsers();
+
+          // Makes sure users is always an array.
+          setUsers(Array.isArray(data) ? data : []);
+        } catch (error) {
+          console.error("Failed to load users:", error);
+
+          // Keeps the dropdown from breaking if the request fails.
+          setUsers([]);
+        }
+      };
+
+      fetchUsers();
+    }, []);
+
+  // Load this lead and refresh messages every few seconds.
   useEffect(() => {
     const fetchConversations = async (isPolling = false) => {
       try {
         if (!isPolling) setLoading(true);
 
         const data = await apiService.getConversationsByLead(leadId);
+
 
         if (!isPolling) {
           setLeadDetails(data);
@@ -75,10 +206,12 @@ const ChatHistory = ({ user, onLogout }) => {
     }
   }, [leadId]);
 
+  // Navigate back to the main conversations list.
   const handleBackToConversations = () => {
     navigate("/conversations");
   };
 
+  // Add an internal note and save it in localStorage for this lead.
   const handleAddNote = () => {
     if (!newNote.trim()) return;
 
@@ -98,6 +231,69 @@ const ChatHistory = ({ user, onLogout }) => {
     setActiveTab("notes");
   };
 
+  // Position and open/close the custom status dropdown.
+  const handleStatusMenuToggle = () => {
+    if (statusButtonRef.current) {
+      const rect = statusButtonRef.current.getBoundingClientRect();
+
+      setStatusMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.right - 210,
+        width: 210,
+      });
+    }
+
+    setShowStatusMenu((prev) => !prev);
+  };
+
+  // Updates the Status dropdown locally only.
+  // Nothing is saved to the backend until the user clicks Save Changes.
+  const handleStatusChange = (newStatus) => {
+    setLeadOverviewDraft((prev) => ({
+      ...prev,
+      status: newStatus,
+    }));
+
+    setHasOverviewChanges(true);
+    setShowStatusMenu(false);
+  };
+
+  // Saves all Lead Overview fields together:
+  // Status + Assigned To + Priority.
+  const handleSaveLeadOverview = async () => {
+    try {
+      setIsSavingOverview(true);
+
+      await apiService.updateLead(leadId, {
+        Email: leadDetails?.email || "",
+        FirstName: leadDetails?.firstName || "",
+        LastName: leadDetails?.lastName || "",
+        Phone: leadDetails?.phone || "",
+
+        // Editable Lead Overview fields.
+        Status: leadOverviewDraft.status,
+        AssignedUserId: leadOverviewDraft.assignedUserId || null,
+        Priority: leadOverviewDraft.priority,
+      });
+
+      // Keep this page updated after a successful save.
+      setLeadDetails((prev) => ({
+        ...(prev || {}),
+        status: leadOverviewDraft.status,
+        assignedUserId: leadOverviewDraft.assignedUserId,
+        priority: leadOverviewDraft.priority,
+      }));
+
+      setHasOverviewChanges(false);
+    } catch (err) {
+      console.error("Failed to save lead overview:", err);
+      alert("Failed to save lead overview. Please try again.");
+    } finally {
+      setIsSavingOverview(false);
+    }
+  };
+
+  // Derived values used by the lead detail UI.
   const latestMessage =
     messages.find((message) => message.sender !== "bot") || messages[0];
 
@@ -152,7 +348,8 @@ const ChatHistory = ({ user, onLogout }) => {
     ? "Chatbot Lead"
     : "Chatbot Lead";
 
-  const status = leadDetails?.status || latestMessage?.status || "New Lead";
+  // Current editable status shown in Lead Overview
+    const status = leadOverviewDraft.status;
 
   const inquiryType =
     leadDetails?.inquiryType ||
@@ -187,10 +384,31 @@ const ChatHistory = ({ user, onLogout }) => {
     rawMessage ||
     "No message provided.";
 
-  const assignedTo =
-    leadDetails?.assignedTo || leadDetails?.assignedUserName || "Unassigned";
+  // New: keeps the Lead Overview draft in sync when lead details load.
+  // =========================================
+  // Sync saved backend lead values into
+  // the editable Lead Overview form.
+  // =========================================
+  useEffect(() => {
+    if (!leadDetails) return;
 
-  const priority = leadDetails?.priority || leadDetails?.leadPriority || "Medium";
+    setLeadOverviewDraft({
+      status:
+        leadDetails?.status ||
+        leadDetails?.Status ||
+        "New Lead",
+
+      assignedUserId:
+        leadDetails?.assignedUserId ||
+        leadDetails?.AssignedUserId ||
+        "",
+
+      priority:
+        leadDetails?.priority ||
+        leadDetails?.Priority ||
+        "Medium",
+    });
+  }, [leadDetails]);
 
   const surveyDetails = leadDetails?.details || leadDetails?.Details || null;
 
@@ -216,7 +434,6 @@ const ChatHistory = ({ user, onLogout }) => {
     }
   })();
 
-  // NEW:
   // Converts internal survey question IDs into readable labels
   // so the dashboard feels user-friendly for sales and marketing teams.
   const surveyQuestionLabels = {
@@ -224,20 +441,72 @@ const ChatHistory = ({ user, onLogout }) => {
     age: "Age Range",
     whyNow: "Current Concerns",
     timeline: "Decision Timeline",
+
     bathing: "Bathing Assistance",
     dressing: "Dressing Assistance",
     mobility: "Mobility",
     meals: "Meal Support",
     medication: "Medication Support",
+    medicationSupport: "Medication Support",
+
     falls: "Fall History",
     emergencies: "Emergency Needs",
+
     homeSafety: "Home Safety",
+    dailyRoutine: "Daily Routine",
+
     memory: "Memory Concerns",
+    memoryConcern: "Memory Concern",
+
     confusion: "Confusion Frequency",
+
+    wandering: "Wandering",
+
+    caregiverStress: "Caregiver Stress",
+
+    supervision: "Supervision",
+
+    decisionTimeline: "Decision Timeline",
+
+    spaceNeed: "Space Needs",
+
+    maintenance: "Home Maintenance",
+
+    safety: "Safety Concerns",
+
+    stairs: "Stairs & Mobility",
+
+    clutter: "Clutter",
+
+    emotionalReadiness: "Emotional Readiness",
+
+    support: "Support System",
+
+    futureLifestyle: "Future Lifestyle",
+
+    decisionMaking: "Decision Making",
+
+    social: "Social Connection",
+
+    mood: "Mood",
+
+    engagement: "Engagement",
+
+    caregiver: "Caregiver Support",
+
+    stress: "Stress Level",
+
+    sustainability: "Sustainability",
+
+    openness: "Openness to Change",
+
   };
 
-
-
+  const formatSurveyKey = (key = "") => {
+    return key
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
 
   return (
     <div className="chat-history-container">
@@ -264,7 +533,6 @@ const ChatHistory = ({ user, onLogout }) => {
           </div>
 
           <div className="lead-actions">
-            <span className="lead-status-pill">{status}</span>
             <button className="lead-action-btn">Assign</button>
             <button className="lead-action-btn">Actions</button>
           </div>
@@ -311,10 +579,27 @@ const ChatHistory = ({ user, onLogout }) => {
                     <InfoRow label="Last Name" value={lastName} />
                     <InfoRow label="Email" value={leadEmail} />
                     <InfoRow label="Phone" value={leadPhone} />
-                    <InfoRow label="Inquiring For" value={inquiryType} />
-                    <InfoRow label="Connection Preference" value={connectionType} />
-                    <InfoRow label="Preferred Date" value={preferredDate} />
-                    <InfoRow label="Preferred Time" value={preferredTime} />
+
+                    {!isSurveyLead && (
+                      <>
+                        <InfoRow label="Inquiring For" value={inquiryType} />
+
+                        <InfoRow
+                          label="Connection Preference"
+                          value={connectionType}
+                        />
+
+                        <InfoRow
+                          label="Preferred Date"
+                          value={preferredDate}
+                        />
+
+                        <InfoRow
+                          label="Preferred Time"
+                          value={preferredTime}
+                        />
+                      </>
+                    )}
                   </div>
 
                   {isChatbotLead ? (
@@ -387,13 +672,11 @@ const ChatHistory = ({ user, onLogout }) => {
                     )}
                   </div>
 
-                  {/* NEW:
-                      Compact assessment metadata row */}
                   <div className="survey-meta-grid">
                     <div className="survey-meta-item">
                       <span>Survey Type</span>
-                      <strong>{surveyKey || "—"}</strong>
-                    </div>
+                  <strong>{formatSurveyKey(surveyKey) || "—"}</strong>                    
+                  </div>
 
                     <div className="survey-meta-item">
                       <span>Recommendation</span>
@@ -518,9 +801,146 @@ const ChatHistory = ({ user, onLogout }) => {
                   <h3>Lead Overview</h3>
                 </div>
 
-                <DetailRow label="Status" value={status} highlight="green" />
-                <DetailRow label="Assigned To" value={assignedTo} />
-                <DetailRow label="Priority" value={priority} highlight="orange" />
+                <div className="detail-row">
+                  <span>Status</span>
+
+                  <div className="status-menu-wrapper">
+                    <button
+                      ref={statusButtonRef}
+                      type="button"
+                      className={`status-select status-${status
+                        .toLowerCase()
+                        .replace(/\s+/g, "-")}`}
+                      onClick={handleStatusMenuToggle}
+                    >
+                      <span>{status}</span>
+                      <span className="status-caret">⌄</span>
+                    </button>
+                  </div>
+
+                  {showStatusMenu &&
+                    createPortal(
+                      <div
+                        className="status-options-menu"
+                        style={{
+                          top: `${statusMenuPosition.top}px`,
+                          left: `${statusMenuPosition.left}px`,
+                          width: `${statusMenuPosition.width}px`,
+                        }}
+                      >
+                        {statusOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className="status-option"
+                            onClick={() => handleStatusChange(option)}
+                          >
+                            <span
+                              className={`status-dot status-dot-${option
+                                .toLowerCase()
+                                .replace(/\s+/g, "-")}`}
+                            />
+
+                            {option}
+                          </button>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
+                </div>
+
+              <div className="detail-row">
+                <span>Assigned To</span>
+
+                {/* New: dropdown for assigning this lead to a dashboard user */}
+                <select
+                  className="assigned-user-select"
+                  value={leadOverviewDraft.assignedUserId}
+                  onChange={(e) => {
+                    // Update local draft only.
+                    // The change is saved after clicking Save Changes.
+                    setLeadOverviewDraft((prev) => ({
+                      ...prev,
+                      assignedUserId: e.target.value,
+                    }));
+
+                    setHasOverviewChanges(true);
+                  }}                >
+                  {/* Default option when no user is assigned */}
+                  <option value="">Unassigned</option>
+
+                  {/* New: dynamically show users loaded from apiService.getUsers() */}
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email}
+                    </option>
+                  ))}
+                </select>
+              </div>                
+              
+              <div className="detail-row">
+                <span>Priority</span>
+
+                {/* =========================================
+                    Custom Priority Dropdown
+                    Premium SaaS-style dropdown menu
+                ========================================= */}
+                  <div className="priority-menu-wrapper" ref={priorityMenuRef}>
+                  {/* Dropdown trigger button */}
+                  <button
+                    type="button"
+                    className={`priority-select priority-${leadOverviewDraft.priority.toLowerCase()}`}
+                    onClick={() => {
+                      // Opens/closes the dropdown menu
+                      setShowPriorityMenu((prev) => !prev);
+                    }}
+                  >
+                    <span>{leadOverviewDraft.priority}</span>
+
+                    <span className="priority-caret">⌄</span>
+                  </button>
+
+                  {/* Dropdown options menu */}
+                  {showPriorityMenu && (
+                    <div className="priority-options-menu">
+
+                      {priorityOptions.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className="priority-option"
+                          onClick={() => {
+
+                            // Update local draft only.
+                            // The change is saved after clicking Save Changes.
+                            setLeadOverviewDraft((prev) => ({
+                              ...prev,
+                              priority: option,
+                            }));
+
+                            setHasOverviewChanges(true);
+                            setShowPriorityMenu(false);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+                {/* Save button for Lead Overview draft changes */}
+                <div className="lead-overview-save-row">
+                  <button
+                    type="button"
+                    className="save-overview-btn"
+                    onClick={handleSaveLeadOverview}
+                    disabled={!hasOverviewChanges || isSavingOverview}
+                  >
+                    {isSavingOverview ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
               </div>
 
               <div className="details-card">

@@ -1,3 +1,4 @@
+/* Cleaned ChatHistory.css - single lead page */
 /* Chat History Page */
 .chat-history-container {
   min-height: 100vh;
@@ -75,16 +76,6 @@
   align-items: center;
 }
 
-.lead-status-pill {
-  background: #dcfce7;
-  color: #047857;
-  border: 1px solid #bbf7d0;
-  padding: 9px 15px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 .lead-action-btn {
   background: #ffffff;
   border: 1px solid #dbe3ef;
@@ -117,6 +108,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: visible;
 }
 
 /* Cards */
@@ -590,7 +582,7 @@
 
 /* Details Panel */
 .details-card {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .details-card-header {
@@ -620,6 +612,171 @@
   font-size: 13px;
 }
 
+
+/* =========================================
+   Assigned User Dropdown
+   Premium SaaS-style select input
+========================================= */
+
+.assigned-user-select {
+  min-width: 170px;
+  height: 40px;
+
+  padding: 0 14px;
+
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+
+  outline: none;
+  cursor: pointer;
+
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 10px rgba(15, 23, 42, 0.03);
+
+  transition: all 0.2s ease;
+
+  appearance: none;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+
+  background-position:
+    calc(100% - 18px) 17px,
+    calc(100% - 13px) 17px;
+
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* Hover */
+.assigned-user-select:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+/* Focus */
+.assigned-user-select:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.12),
+    0 10px 24px rgba(37, 99, 235, 0.08);
+}
+
+/* =========================================
+   Custom Priority Dropdown
+   Premium SaaS-style menu
+========================================= */
+
+.priority-menu-wrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.priority-select {
+  min-width: 125px;
+  height: 40px;
+  padding: 0 12px 0 14px;
+  border: none;
+  border-radius: 14px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 6px 16px rgba(15, 23, 42, 0.05);
+
+  transition: all 0.2s ease;
+}
+
+.priority-select:hover {
+  transform: translateY(-1px);
+}
+
+.priority-caret {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* This is the actual opened dropdown box */
+.priority-options-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 200;
+
+  width: 160px;
+  padding: 8px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.14),
+    0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.priority-option {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.priority-option:hover {
+  background: #f8fafc;
+}
+
+/* Priority colors */
+.priority-low {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.priority-medium {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.priority-high {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.priority-urgent {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+
+/* End of Priority */
+
 .detail-row:last-child {
   border-bottom: none;
 }
@@ -642,6 +799,162 @@
 .detail-value.orange {
   color: #ea580c;
 }
+
+/* Lead Overview Status Dropdown */
+.detail-row .status-menu-wrapper {
+  position: relative;
+  width: fit-content;
+  margin-left: auto;
+}
+
+.detail-row .status-select {
+  min-width: 140px;
+  height: 34px;
+  padding: 0 10px 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.detail-row .status-select:hover {
+  transform: translateY(-1px);
+}
+
+.status-caret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.status-options-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  width: 210px;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+}
+
+.status-option {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-option:hover {
+  background: #f8fafc;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 8px;
+}
+
+.status-dot-new,
+.status-dot-new-lead {
+  background: #7c3aed;
+}
+
+.status-dot-attempted-contact {
+  background: #c2410c;
+}
+
+.status-dot-contacted {
+  background: #92400e;
+}
+
+.status-dot-qualified {
+  background: #047857;
+}
+
+.status-dot-tour-scheduled {
+  background: #6d28d9;
+}
+
+.status-dot-converted {
+  background: #166534;
+}
+
+.status-dot-closed {
+  background: #475569;
+}
+
+.status-new,
+.status-new-lead {
+  background: linear-gradient(135deg, #f3e8ff, #ede9fe);
+  color: #6d28d9;
+  border-color: #ddd6fe;
+  box-shadow: 0 6px 14px rgba(109, 40, 217, 0.12);
+}
+
+.status-new:hover,
+.status-new-lead:hover {
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+  border-color: #c4b5fd;
+}
+
+.status-attempted-contact {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.status-contacted {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-qualified {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-tour-scheduled {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.status-converted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-closed {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 
 /* States */
 .loading-state,
@@ -714,7 +1027,6 @@
     flex-wrap: wrap;
   }
 
-  .lead-status-pill,
   .lead-action-btn {
     flex: 1;
     text-align: center;
@@ -790,10 +1102,69 @@
 
   .detail-row {
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
 
   .detail-value {
     text-align: left;
   }
+
+  .detail-row .status-menu-wrapper {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .detail-row .status-select {
+    width: 100%;
+  }
+
+  .status-options-menu {
+    left: 0;
+    right: auto;
+    width: 100%;
+  }
+}
+
+/* =========================================
+   Save Lead Overview Button
+========================================= */
+
+.lead-overview-save-row {
+  padding: 16px;
+  border-top: 1px solid #eef2f7;
+}
+
+.save-overview-btn {
+  width: 100%;
+  height: 42px;
+  border: none;
+  border-radius: 14px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.18);
+}
+
+.save-overview-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #1d4ed8;
+}
+
+.save-overview-btn:disabled {
+  opacity: 0.55;
+
+  /* Cleaner SaaS behavior */
+  cursor: default;
+
+  transform: none;
+  box-shadow: none;
+
+  background: #9db5f2;
+}
+
+.save-overview-btn:not(:disabled):hover {
+  transform: translateY(-1px);
 }

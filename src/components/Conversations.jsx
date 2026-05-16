@@ -5,41 +5,51 @@ import Header from "./Header";
 import apiService from "../services/apiService";
 import { formatLocalDate, formatLocalTime } from "../utils/dateUtils";
 import { trackEvent } from "../utils/analytics";
-
-// Status options used by the custom status dropdown.
-const statusOptions = [
-  "New",
-  "Attempted Contact",
-  "Contacted",
-  "Qualified",
-  "Tour Scheduled",
-  "Converted",
-  "Closed",
-];
+import { useNotification } from "../contexts/NotificationContext";
 
 const Conversations = ({ user, onLogout }) => {
   const navigate = useNavigate();
 
+  // Search, pagination, and lead list state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTimer, setSearchTimer] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [leadsPerPage, setLeadsPerPage] = useState(10); 
+  const [leadsPerPage, setLeadsPerPage] = useState(10);
+  // Stores which field the user wants to filter/search by.
+  // Default is "all", meaning the search checks name, email, and phone.
+  // Controls the dropdown filter beside the search box.
+  // Example values: all, source:survey form, source:webform, community:none
+  const [leadFilter, setLeadFilter] = useState("all");
+  // Notification and polling helpers
+  const { showNotification } = useNotification();
 
-  // Tracks which lead's status dropdown is currently open.
-  const [openStatusLeadId, setOpenStatusLeadId] = useState(null);
+  // Stores the lead IDs we already know about.
+  // This helps us detect if a new lead was added later.
+  const knownLeadIdsRef = useRef(new Set());
 
-  // Controls whether the Actions dropdown is open or closed.
+  // Prevents notification spam when the page first loads.
+  // We only want alerts AFTER the first load.
+  const hasLoadedLeadsOnceRef = useRef(false);
+
+  // Toolbar and Add Lead modal state
   const [showActionsMenu, setShowActionsMenu] = useState(false);
+
+  // Controls the Filter dropdown menu.
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   // This points to the Actions dropdown container.
   // We use it to know if the user clicked inside or outside the dropdown.
   const actionsDropdownRef = useRef(null);
 
+  // Used to detect outside clicks for the Filter dropdown.
+  const filterDropdownRef = useRef(null);
+
   // Controls whether the Add Lead modal is open or closed.
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  
 
   // Stores the form values typed into the Add Lead modal.
   const [newLead, setNewLead] = useState({
@@ -59,12 +69,26 @@ const Conversations = ({ user, onLogout }) => {
   // Stores any error from creating a manual lead.
   const [createLeadError, setCreateLeadError] = useState("");
 
+  // Creates the label used in the notification popup.
+  // Example: Webform, Survey, Chat
+  const getLeadNotificationSource = (lead) => {
+    const source = (lead.source || lead.leadSource || "").toLowerCase();
+
+    if (source.includes("webform")) return "Webform";
+    if (source.includes("survey")) return "Survey";
+    if (source.includes("chat") || source.includes("chatbot")) return "Chat";
+
+    // Your current dashboard treats empty source as Chatbot.
+    return "Chat";
+  };
+
   const getLeadSource = (conv) => {
     const rawSource = conv.source || conv.leadSource || "";
 
     if (!rawSource || rawSource.trim() === "") {
       return "Chatbot";
     }
+
 
     const normalizedSource = rawSource.toLowerCase();
 
@@ -75,10 +99,28 @@ const Conversations = ({ user, onLogout }) => {
     return rawSource;
   };
 
+  
   const getSourceClass = (source) => {
     return `source-badge source-${source.toLowerCase().replace(/\s+/g, "-")}`;
   };
 
+
+  // Returns the saved lead status from the backend.
+  // Defaults to "New Lead" when older leads do not have a status yet.
+  const getLeadStatus = (lead) => {
+    return lead?.status || lead?.Status || "New Lead";
+  };
+
+  // Creates a CSS class for each status badge.
+  // Example: "Tour Scheduled" becomes "status-tour-scheduled".
+  const getStatusClass = (status) => {
+    return `lead-status-badge status-${String(status)
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`;
+  };
+
+
+  // Load leads and poll for new leads so the dashboard stays fresh.
   useEffect(() => {
     trackEvent("Conversations", "Page View", "Conversations Page");
 
@@ -89,6 +131,54 @@ const Conversations = ({ user, onLogout }) => {
         }
 
         const data = await apiService.getLeads();
+
+                // Create a Set of the current lead IDs.
+        // This helps us compare old leads vs new leads.
+        const currentLeadIds = new Set(
+          Array.isArray(data)
+            ? data.map((lead) => lead.id).filter(Boolean)
+            : []
+        );
+
+        // Find leads that did NOT exist before.
+        const newLeads = Array.isArray(data)
+          ? data.filter(
+              (lead) =>
+                lead?.id &&
+                !knownLeadIdsRef.current.has(lead.id)
+            )
+          : [];
+
+        // IMPORTANT:
+        // Skip notifications on the FIRST load.
+        // Otherwise every old lead would trigger alerts.
+        if (hasLoadedLeadsOnceRef.current && newLeads.length > 0) {
+
+          // Loop through all newly detected leads.
+          newLeads.forEach((lead) => {
+
+            // Build lead name safely.
+            const leadName =
+              `${lead.firstName || ""} ${lead.lastName || ""}`.trim() ||
+              "New Lead";
+
+            // Detect source type.
+            const sourceLabel = getLeadNotificationSource(lead);
+
+            // Show notification popup.
+            showNotification(
+              `New ${sourceLabel} lead received: ${leadName}`,
+              "success",
+              5000
+            );
+          });
+        }
+
+        // Save the latest lead IDs for the NEXT polling cycle.
+        knownLeadIdsRef.current = currentLeadIds;
+
+        // Marks the first load as complete.
+        hasLoadedLeadsOnceRef.current = true;
 
         setConversations((prevConversations) => {
           const prevIds = Array.isArray(prevConversations)
@@ -158,11 +248,20 @@ const Conversations = ({ user, onLogout }) => {
     const handleClickOutside = (event) => {
       // If the dropdown exists AND the clicked item is not inside it,
       // close the dropdown.
+      // Close Actions dropdown if clicked outside.
       if (
         actionsDropdownRef.current &&
         !actionsDropdownRef.current.contains(event.target)
       ) {
         setShowActionsMenu(false);
+      }
+
+      // Close Filter dropdown if clicked outside.
+      if (
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(event.target)
+      ) {
+        setShowFilterMenu(false);
       }
     };
 
@@ -177,6 +276,7 @@ const Conversations = ({ user, onLogout }) => {
 
 
 
+  // Debounced search analytics and filter reset.
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
@@ -195,29 +295,66 @@ const Conversations = ({ user, onLogout }) => {
     setSearchTimer(timer);
   };
 
-  const filteredConversations = Array.isArray(conversations)
-    ? conversations.filter((conv) => {
-        if (!conv || !searchQuery) return true;
+// Filter, search, paginate, and summarize leads for the table.
+// Search and dropdown filter now work together.
+const filteredConversations = Array.isArray(conversations)
+  ? conversations.filter((conv) => {
+      if (!conv) return false;
 
-        const query = searchQuery.toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
 
-        const leadName = `${conv.firstName || ""} ${
-          conv.lastName || ""
-        }`.trim();
+      const leadName = `${conv.firstName || ""} ${
+        conv.lastName || ""
+      }`.trim();
 
-        const lead = leadName.toLowerCase();
-        const leadEmail = conv.email ? String(conv.email).toLowerCase() : "";
-        const leadPhone = conv.phone ? String(conv.phone).toLowerCase() : "";
+      const lead = leadName.toLowerCase();
+      const leadEmail = conv.email ? String(conv.email).toLowerCase() : "";
+      const leadPhone = conv.phone ? String(conv.phone).toLowerCase() : "";
+      const leadSource = getLeadSource(conv).toLowerCase();
 
-        return (
-          lead.includes(query) ||
-          leadEmail.includes(query) ||
-          leadPhone.includes(query)
-        );
-      })
-    : [];
+      const leadCommunity = conv.community
+        ? String(conv.community).toLowerCase()
+        : "";
 
+      const leadCreatedDate = conv.createdAt
+        ? formatLocalDate(conv.createdAt).toLowerCase()
+        : "";
 
+      // Search works across the main fields.
+      const matchesSearch =
+        !query ||
+        lead.includes(query) ||
+        leadEmail.includes(query) ||
+        leadPhone.includes(query) ||
+        leadSource.includes(query) ||
+        leadCommunity.includes(query) ||
+        leadCreatedDate.includes(query);
+
+      // Dropdown filter works even when search is empty.
+      let matchesFilter = true;
+
+      if (leadFilter.startsWith("source:")) {
+        const selectedSource = leadFilter.replace("source:", "");
+        matchesFilter = leadSource === selectedSource;
+      }
+
+      if (leadFilter === "community:has") {
+        matchesFilter = leadCommunity && leadCommunity !== "n/a";
+      }
+
+      if (leadFilter === "community:none") {
+        matchesFilter = !leadCommunity || leadCommunity === "n/a";
+      }
+
+      if (leadFilter === "created:this-week") {
+        matchesFilter = isThisWeek(conv.createdAt);
+      }
+
+      return matchesSearch && matchesFilter;
+    })
+  : [];
+
+  
     const totalPages = Math.ceil(filteredConversations.length / leadsPerPage);
 
     const startIndex = (currentPage - 1) * leadsPerPage;
@@ -346,12 +483,13 @@ const weeklySurveyLeads = conversations.filter(
   };
 
 
+  // Renders the lead rows in the table.
   const renderLeadRows = () => {
     if (filteredConversations.length === 0) {
       return (
         <tr>
-          <td colSpan="6" className="no-data">
-            {searchQuery ? "No leads match your search." : "No leads found."}
+        <td colSpan="6" className="no-data">            
+          {searchQuery ? "No leads match your search." : "No leads found."}
           </td>
         </tr>
       );
@@ -402,61 +540,17 @@ const weeklySurveyLeads = conversations.filter(
 
           <td>{conv.community || "N/A"}</td>
 
-          <td>
-            <span className={getSourceClass(leadSource)}>{leadSource}</span>
-          </td>
+            <td>
+              <span className={getSourceClass(leadSource)}>{leadSource}</span>
+            </td>
 
-          <td>
-            {/* 
-              Status dropdown for each lead.
-              If the lead does not have a status yet, we show "New" by default.
-            */}
-          <div className="status-menu-wrapper">
-            <button
-              type="button"
-              className={`status-select status-${(conv.status || "New")
-                .toLowerCase()
-                .replace(/\s+/g, "-")}`}
-              onClick={() =>
-                setOpenStatusLeadId((prev) => (prev === conv.id ? null : conv.id))
-              }
-            >
-              <span>{conv.status || "New"}</span>
-              <span className="status-caret">⌄</span>
-            </button>
+            <td>
+              <span className={getStatusClass(getLeadStatus(conv))}>
+                {getLeadStatus(conv)}
+              </span>
+            </td>
 
-            {openStatusLeadId === conv.id && (
-              <div className="status-options-menu">
-                {statusOptions.map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    className="status-option"
-                    onClick={() => {
-                      setConversations((prevConversations) =>
-                        prevConversations.map((lead) =>
-                          lead.id === conv.id ? { ...lead, status } : lead
-                        )
-                      );
-
-                      setOpenStatusLeadId(null);
-                      trackEvent("Conversations", "Status Changed", status);
-                    }}
-                  >
-                    <span
-                      className={`status-dot status-dot-${status
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")}`}
-                    />
-                    {status}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>          
-
-          </td>
-          <td className="created-cell">
+            <td className="created-cell">
             <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
             <span className="created-time">
               {conv.created?.time || formatLocalTime(conv.createdAt)}
@@ -520,16 +614,140 @@ const weeklySurveyLeads = conversations.filter(
         </div>
 
         <div className="conversations-toolbar">
-          <div className="search-box">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search leads by name, email, or phone"
-              value={searchQuery}
-              onChange={handleSearchChange}
-            />
+          <div className="toolbar-left">
+
+            {/* Search box */}
+            <div className="search-box">
+              <span className="search-icon">🔍</span>
+
+              <input
+                type="text"
+                placeholder="Search leads by name, email, phone, source, or community"
+                value={searchQuery}
+                onChange={handleSearchChange}
+              />
+            </div>
+
+            {/* Filter dropdown */}
+          {/* Premium Filter Dropdown */}
+          <div
+            className="actions-dropdown filter-dropdown"
+            ref={filterDropdownRef}
+          >
+            <button
+              type="button"
+              className="btn btn-filter"
+              onClick={() => {
+                setShowFilterMenu((prev) => !prev);
+              }}
+            >
+              {leadFilter === "all" && "All Leads"}
+              {leadFilter === "source:survey form" && "Survey Form"}
+              {leadFilter === "source:webform" && "Webform"}
+              {leadFilter === "source:chatbot" && "Chatbot"}
+              {leadFilter === "source:manual" && "Manual Lead"}
+              {leadFilter === "community:has" && "Has Community"}
+              {leadFilter === "community:none" && "No Community"}
+              {leadFilter === "created:this-week" && "This Week"}
+
+              <span className="filter-caret">▾</span>
+            </button>
+
+            {showFilterMenu && (
+              <div className="actions-menu filter-menu">
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("all");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  All Leads
+                </button>
+
+                <div className="actions-divider" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("source:survey form");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  Survey Form
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("source:webform");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  Webform
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("source:chatbot");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  Chatbot
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("source:manual");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  Manual Lead
+                </button>
+
+                <div className="actions-divider" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("community:has");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  Has Community
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("community:none");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  No Community
+                </button>
+
+                <div className="actions-divider" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadFilter("created:this-week");
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  Created This Week
+                </button>
+
+              </div>
+            )}
           </div>
 
+
+          </div>
           <div className="controls-actions">
             {/* Opens the Add Lead modal */}
             <button
@@ -679,8 +897,8 @@ const weeklySurveyLeads = conversations.filter(
           <th>COMMUNITY</th>
           <th>SOURCE</th>
           <th>STATUS</th>
-          <th>CREATED</th>
-        </tr>
+          <th>CREATED</th>        
+          </tr>
       </thead>
 
       <tbody>{renderLeadRows()}</tbody>
