@@ -794,6 +794,27 @@
 }
 
 
+/* NEW: Community dropdown styling */
+.community-filter-dropdown {
+  height: 44px;
+  min-width: 220px;
+  padding: 0 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+}
+
+.community-filter-dropdown:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+
+
 /* Tablet */
 @media (max-width: 1100px) {
   .stats-grid {
