@@ -23,6 +23,14 @@ const Conversations = ({ user, onLogout }) => {
   // Controls the dropdown filter beside the search box.
   // Example values: all, source:survey form, source:webform, community:none
   const [leadFilter, setLeadFilter] = useState("all");
+
+  // NEW: Controls which community/client leads are shown.
+  // "all" means show leads from every community.
+  const [selectedCommunity, setSelectedCommunity] = useState("all");
+
+  // NEW: Stores the community options shown in the dropdown.
+  const [communities, setCommunities] = useState([]);  
+
   // Notification and polling helpers
   const { showNotification } = useNotification();
 
@@ -132,6 +140,28 @@ const Conversations = ({ user, onLogout }) => {
 
         const data = await apiService.getLeads();
 
+        // NEW: Load communities from the database so the dropdown is dynamic.
+        const communitiesData = await apiService.getCommunities();
+
+        // NEW: Convert community website URLs into client keys.
+        // Example: https://asburyheights.org → asbury-heights
+        const formattedCommunities = communitiesData
+          .map((community) => {
+            if (!community.urlAddress) return null;
+
+            return community.urlAddress
+              .replace(/^https?:\/\//, "")
+              .replace(/^www\./, "")
+              .split(".")[0]
+              .toLowerCase()
+              .replace("asburyheights", "asbury-heights");
+          })
+          .filter(Boolean);
+
+        // NEW: Remove duplicates before saving dropdown options.
+        setCommunities([...new Set(formattedCommunities)]);
+
+
                 // Create a Set of the current lead IDs.
         // This helps us compare old leads vs new leads.
         const currentLeadIds = new Set(
@@ -240,7 +270,7 @@ const Conversations = ({ user, onLogout }) => {
     return () => {
       clearInterval(pollingInterval);
     };
-  }, []);
+  }, [selectedCommunity]);
 
 
   // This closes the Actions dropdown when clicking outside of it.
@@ -300,6 +330,16 @@ const Conversations = ({ user, onLogout }) => {
 const filteredConversations = Array.isArray(conversations)
   ? conversations.filter((conv) => {
       if (!conv) return false;
+
+    // NEW: Community/client filter.
+    // If "all" is selected, show every lead.
+    // Otherwise, only show leads that match the selected clientKey.
+    const leadClientKey = String(conv.clientKey || "").toLowerCase();
+
+    const matchesSelectedCommunity =
+      selectedCommunity === "all" || leadClientKey === selectedCommunity;
+
+if (!matchesSelectedCommunity) return false;
 
       const query = searchQuery.trim().toLowerCase();
 
@@ -615,6 +655,25 @@ const weeklySurveyLeads = conversations.filter(
 
         <div className="conversations-toolbar">
           <div className="toolbar-left">
+
+          {/* NEW: Community filter dropdown */}
+          <select
+            className="community-filter-dropdown"
+            value={selectedCommunity}
+            onChange={(e) => {
+              setSelectedCommunity(e.target.value);
+              setCurrentPage(1);
+            }}
+          >
+            <option value="all">All Communities</option>
+
+            {communities.map((community) => (
+              <option key={community} value={community}>
+                {community}
+              </option>
+            ))}
+          </select>              
+
 
             {/* Search box */}
             <div className="search-box">

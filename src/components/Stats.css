@@ -13,6 +13,69 @@
   padding: 38px 36px 48px;
 }
 
+/* ========================================
+   Traffic Overview Wide Card
+======================================== */
+
+.traffic-overview-wide {
+  grid-column: 1 / -1;
+}
+
+.traffic-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+
+  margin-top: 24px;
+}
+
+.traffic-overview-stat {
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+
+  background: #f8fafc;
+}
+
+.traffic-overview-stat strong {
+  display: block;
+  margin-top: 14px;
+
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+@media (max-width: 900px) {
+  .traffic-overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .traffic-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========================================
+   Traffic Overview Labels
+======================================== */
+
+.traffic-summary-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.traffic-summary-label svg {
+  color: #2563eb;
+}
+
 /* ===============================
    Page Header and Report Actions
 ================================ */
@@ -156,34 +219,107 @@
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
 }
 
-/* ===============================
-   Tabs
-================================ */
+
+/* ========================================
+   Analytics Dashboard Tabs
+======================================== */
 
 .stats-tabs {
   display: flex;
-  gap: 26px;
-  margin-bottom: 38px;
-  padding-bottom: 2px;
-  border-bottom: 1px solid #dbe3ef;
+  align-items: center;
+  gap: 10px;
+
   overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 28px;
+
+  border-bottom: 1px solid #e2e8f0;
+
+  scrollbar-width: none;
 }
 
+.stats-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual tab buttons */
 .stats-tabs button {
-  padding: 0 0 12px;
-  border: 0;
-  border-bottom: 2px solid transparent;
+  border: none;
   background: transparent;
-  color: #111827;
+
+  padding: 12px 18px;
+  border-radius: 12px;
+
   font-size: 14px;
+  font-weight: 600;
+
+  color: #64748b;
+
   cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+
   white-space: nowrap;
 }
 
-.stats-tabs button.active {
-  border-bottom-color: #111827;
-  font-weight: 800;
+/* Hover state */
+.stats-tabs button:hover {
+  background: #f8fafc;
+  color: #0f172a;
 }
+
+/* Active selected tab */
+.stats-tabs button.active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Small click animation */
+.stats-tabs button:active {
+  transform: scale(0.98);
+}
+
+
+/* ========================================
+   Traffic Analytics Summary
+======================================== */
+
+.traffic-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.traffic-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.traffic-summary-item span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.traffic-summary-item strong {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.stats-card-subtitle {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 14px;
+}
+
 
 /* ===============================
    KPI Cards
