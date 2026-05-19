@@ -79,6 +79,247 @@
   color: #0369a1;
 }
 
+
+/* =========================================================
+   NEW SETTINGS PLATFORM LAYOUT
+   This replaces the old button-stack layout with
+   scalable grouped settings cards.
+========================================================= */
+
+/* Main page spacing */
+.settings-content {
+  padding: 40px;
+}
+
+/* Modern settings page header */
+.page-title-section {
+  margin-bottom: 32px;
+}
+
+/* Small blue label above title */
+.settings-eyebrow {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2563eb;
+}
+
+/* Main page title */
+.page-title {
+  margin: 0;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #0f172a;
+}
+
+/* Subtitle under Settings title */
+.page-subtitle {
+  margin-top: 10px;
+  max-width: 700px;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   SETTINGS GRID
+========================================================= */
+
+/* 2-column responsive settings layout */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+/* Main settings category card */
+.settings-group-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+/* Card header area */
+.settings-group-header {
+  padding: 24px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+/* Card title */
+.settings-group-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Card description */
+.settings-group-header p {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   SETTINGS ITEMS
+========================================================= */
+
+/* Container for setting items */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Individual settings row */
+.settings-list-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 16px;
+
+  padding: 18px 22px;
+
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+
+  background: #ffffff;
+
+  cursor: pointer;
+  text-align: left;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+/* Remove border on last item */
+.settings-list-item:last-child {
+  border-bottom: none;
+}
+
+/* Hover effect */
+.settings-list-item:hover {
+  background: #f8fafc;
+}
+
+/* Click effect */
+.settings-list-item:active {
+  transform: scale(0.995);
+}
+
+/* =========================================================
+   ICONS
+========================================================= */
+
+/* Blue rounded icon container */
+.settings-icon-wrap {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* =========================================================
+   TEXT CONTENT
+========================================================= */
+
+/* Text container */
+.settings-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Settings item title */
+.settings-item-copy strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Settings item description */
+.settings-item-copy small {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Right arrow */
+.settings-chevron {
+  color: #94a3b8;
+}
+
+
+/* =========================================================
+   DISABLED / COMING SOON SETTINGS
+   Used for settings that are visible but not active yet.
+========================================================= */
+
+/* Makes unfinished settings look inactive */
+.settings-list-item-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Prevents hover movement on inactive settings */
+.settings-list-item-disabled:hover {
+  background: #ffffff;
+  transform: none;
+}
+
+/* Softens the icon color for inactive settings */
+.settings-list-item-disabled .settings-icon-wrap {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* Softens the arrow for inactive settings */
+.settings-list-item-disabled .settings-chevron {
+  color: #cbd5e1;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+/* Tablet layout */
+@media (max-width: 1100px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile layout */
+@media (max-width: 768px) {
+  .settings-content {
+    padding: 24px 18px;
+  }
+
+  .page-title {
+    font-size: 34px;
+  }
+
+  .settings-list-item {
+    grid-template-columns: 42px 1fr auto;
+    padding: 16px;
+  }
+}
+
+
 /* Modal */
 .modal-overlay {
   position: fixed;

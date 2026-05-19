@@ -152,12 +152,37 @@ async login(email, password) {
   }
 
   async createCommunity(communityData) {
-    const payload = {
-      Email: communityData.email,
-      Phone: communityData.phone,
-      UrlAddress: communityData.urlAddress,
-      CompanyId: communityData.companyId
-    };
+  // =====================================================
+  // COMMUNITY CREATE PAYLOAD
+  // Sends all community configuration fields to backend.
+  // =====================================================
+
+  const payload = {
+    // Community identity
+    ClientKey: communityData.clientKey,
+    CommunityName: communityData.communityName,
+
+    // Contact info
+    Email: communityData.email,
+    Phone: communityData.phone,
+
+    // URLs / branding
+    UrlAddress: communityData.urlAddress,
+    Website: communityData.website,
+    LogoUrl: communityData.logoUrl,
+    Address: communityData.address,
+
+    // Status
+    Status: communityData.status,
+
+    // Product enablement
+    WebAssistantEnabled: communityData.webAssistantEnabled,
+    SurveysEnabled: communityData.surveysEnabled,
+    WebformsEnabled: communityData.webformsEnabled,
+
+    // Company relationship
+    CompanyId: communityData.companyId,
+  };
 
     const response = await fetch(`${API_BASE_URL}/Communities`, {
       method: "POST",
@@ -178,13 +203,39 @@ async login(email, password) {
   }
 
   async updateCommunity(communityData) {
-    const payload = {
-      Id: communityData.id,
-      Email: communityData.email,
-      Phone: communityData.phone,
-      UrlAddress: communityData.urlAddress,
-      CompanyId: communityData.companyId
-    };
+  // =====================================================
+  // COMMUNITY UPDATE PAYLOAD
+  // Sends updated community configuration data.
+  // =====================================================
+
+  const payload = {
+    Id: communityData.id,
+
+    // Community identity
+    ClientKey: communityData.clientKey,
+    CommunityName: communityData.communityName,
+
+    // Contact info
+    Email: communityData.email,
+    Phone: communityData.phone,
+
+    // URLs / branding
+    UrlAddress: communityData.urlAddress,
+    Website: communityData.website,
+    LogoUrl: communityData.logoUrl,
+    Address: communityData.address,
+
+    // Status
+    Status: communityData.status,
+
+    // Product enablement
+    WebAssistantEnabled: communityData.webAssistantEnabled,
+    SurveysEnabled: communityData.surveysEnabled,
+    WebformsEnabled: communityData.webformsEnabled,
+
+    // Company relationship
+    CompanyId: communityData.companyId,
+  };
 
     const response = await fetch(`${API_BASE_URL}/Communities/${communityData.id}`, {
       method: "PUT",
