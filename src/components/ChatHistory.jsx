@@ -246,6 +246,33 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     setShowStatusMenu((prev) => !prev);
   };
 
+
+
+  // NEW:
+  // Converts clientKey into a readable community name.
+  // Example: "evergreen-heights" → "Evergreen Heights"
+  const formatCommunityName = (clientKey) => {
+    if (!clientKey) return "—";
+
+    const communityNames = {
+      "evergreen-heights": "Evergreen Heights",
+      "asbury-heights": "Asbury Heights",
+      "robin-run": "Robin Run",
+      "web-smart-assistant": "Web Smart Assistant",
+    };
+
+    if (communityNames[clientKey]) {
+      return communityNames[clientKey];
+    }
+
+    return clientKey
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+
+
   // Updates the Status dropdown locally only.
   // Nothing is saved to the backend until the user clicks Save Changes.
   const handleStatusChange = (newStatus) => {
@@ -948,7 +975,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                   <h3>Community</h3>
                 </div>
 
-                <DetailRow label="Community Name" value={communityName || "N/A"} />
+                <DetailRow
+                label="Community Name"
+                value={formatCommunityName(leadDetails?.clientKey)}
+              />
               </div>
 
               <div className="details-card">

@@ -69,7 +69,11 @@ const Stats = ({ user, onLogout }) => {
   const [leadTrendData, setLeadTrendData] = useState([]);
   const [sourceData, setSourceData] = useState([]);
   const [totalLeads, setTotalLeads] = useState(0);
-  const [selectedCommunity, setSelectedCommunity] = useState("all");
+  // NEW:
+  // Default the Stats dashboard to Evergreen Heights.
+  // This automatically filters the page to the Evergreen Heights community
+  // when the dashboard first loads.
+  const [selectedCommunity, setSelectedCommunity] = useState("evergreen-heights");
   // Controls the Lead Source dropdown filter.
   const [selectedLeadSource, setSelectedLeadSource] = useState("all");  const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +82,9 @@ const Stats = ({ user, onLogout }) => {
   const [selectedRange, setSelectedRange] = useState("30");
   const [reportName, setReportName] = useState("");
   const [savedReportName, setSavedReportName] = useState("");
+  // NEW:
+  // Controls the tooltip shown when the Generate Report button is disabled.
+  const [showReportTooltip, setShowReportTooltip] = useState(false);
   const [reportHistory, setReportHistory] = useState([]);
 
   // Lead source KPI counts.
@@ -103,10 +110,12 @@ const Stats = ({ user, onLogout }) => {
     }
   }, []);
 
-  // This is the name used by the generated PDF and report history.
+  // NEW:
+  // The report name now comes directly from the input.
+  // The Generate Report button stays disabled until the user types a name.
   const reportDisplayName = useMemo(() => {
-    return savedReportName || DEFAULT_REPORT_NAME;
-  }, [savedReportName]);
+    return reportName.trim();
+  }, [reportName]);
 
     const getLeadSourceType = (lead) => {
       const source = (lead?.source || lead?.leadSource || "").toLowerCase();
@@ -130,6 +139,33 @@ const Stats = ({ user, onLogout }) => {
 
       return "Other";
     };
+
+  // NEW:
+  // Converts clientKey values into readable community names.
+  // Example:
+  // "asbury-heights" → "Asbury Heights"
+  const formatCommunityName = (clientKey) => {
+    if (!clientKey) return "Unknown Community";
+
+    const communityNames = {
+      "evergreen-heights": "Evergreen Heights",
+      "asbury-heights": "Asbury Heights",
+      "robin-run": "Robin Run",
+      "web-smart-assistant": "Web Smart Assistant",
+    };
+
+    // Use custom name if available.
+    if (communityNames[clientKey]) {
+      return communityNames[clientKey];
+    }
+
+    // Fallback formatting for future communities.
+    return clientKey
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
 
   const normalizeDateKey = (key) => {
     if (!key) return "";
@@ -179,13 +215,12 @@ const Stats = ({ user, onLogout }) => {
     setSavedReportName(cleanName);
   };
 
+  // NEW:
+  // Updates the report name as the user types.
+  // No separate "Save" button is needed anymore.
   const handleReportNameChange = (event) => {
     setReportName(event.target.value);
-
-    // If the user edits the input after saving, require them to save the new name.
-    setSavedReportName("");
   };
-
   const handleDeleteReport = (reportId) => {
     const updatedHistory = reportHistory.filter(
       (report) => report.id !== reportId
@@ -324,10 +359,12 @@ const Stats = ({ user, onLogout }) => {
 
         const filteredLeads = leads.filter((lead) => {
           // Community filter
+          // NEW:
+          // Filter leads using clientKey instead of community name.
+          // clientKey is now the main source of truth for communities.
           const matchesCommunity =
             selectedCommunity === "all" ||
-            (lead.communityName || lead.community || "Unknown") ===
-              selectedCommunity;
+            lead.clientKey === selectedCommunity;
 
           // Lead source filter
           const leadSourceType = getLeadSourceType(lead);
@@ -487,26 +524,35 @@ const Stats = ({ user, onLogout }) => {
             >
               <input
                 type="text"
-                placeholder="Enter report name"
+                placeholder="Enter Report Name"
                 value={reportName}
                 onChange={handleReportNameChange}
               />
 
-              {reportName.trim() && (
-                <button
-                  type="button"
-                  className="report-name-save-btn"
-                  onClick={handleSaveReportName}
-                  aria-label="Save report name"
-                >
-                  {savedReportName ? "Saved ✓" : "Save"}
-                </button>
-              )}
             </div>
 
-            <button className="stats-primary-button" onClick={handleGeneratePdf}>
+          <div
+            className="report-generate-wrap"
+            onMouseEnter={() => {
+              if (!reportName.trim()) setShowReportTooltip(true);
+            }}
+            onMouseLeave={() => setShowReportTooltip(false)}
+          >
+            <button
+              className="stats-primary-button"
+              onClick={handleGeneratePdf}
+              disabled={!reportName.trim()}
+            >
               Generate Report
             </button>
+
+            {showReportTooltip && !reportName.trim() && (
+              <div className="report-tooltip">
+                Enter a Report Name
+              </div>
+            )}
+          </div>
+
           </div>
         </section>
 
@@ -524,14 +570,24 @@ const Stats = ({ user, onLogout }) => {
             value={selectedCommunity}
             onChange={(event) => setSelectedCommunity(event.target.value)}
           >
-            <option value="all">Any community or group</option>
+          {/* 
+            NEW:
+            "All Communities" is for admin-wide reporting.
+            For now, Evergreen Heights is added manually so the default value
+            has a matching dropdown option.
+          */}
+          <option value="all">All Communities</option>
 
-            {communities.map((community) => (
+          <option value="evergreen-heights">Evergreen Heights</option>
+
+          {communities
+            .filter((community) => community !== "evergreen-heights")
+            .map((community) => (
               <option key={community} value={community}>
-                {community}
+                {formatCommunityName(community)}
               </option>
             ))}
-          </select>
+            </select>
 
           <select
             value={selectedLeadSource}
@@ -565,7 +621,13 @@ const Stats = ({ user, onLogout }) => {
         </section>
 
         {loading ? (
-          <div className="stats-loading">Loading analytics...</div>
+                <div className="stats-loading">
+        <div className="stats-loader-spinner" />
+
+        <div className="stats-loader-text">
+          Loading analytics...
+        </div>
+      </div>
         ) : (
           <>
             {activeTabName === "Overview" && (
@@ -973,37 +1035,271 @@ const Stats = ({ user, onLogout }) => {
             </div>
 
             {/* Lead performance summary */}
+            {/* Lead performance summary */}
             <div className="stats-card">
-              <h3>Lead Performance</h3>
+              <h3>AI Insights</h3>
+
+              <p className="stats-card-subtitle">
+                Smart recommendations based on your current lead activity.
+              </p>
+
+              {/* 
+                NEW:
+                Display AI-style recommendations generated from dashboard data.
+              */}
+              <div className="ai-insights-list">
+
+                {generateRecommendations().map((item, index) => (
+                  <div key={index} className="ai-insight-item">
+
+                    <h4>{item.title}</h4>
+
+                    <p className="ai-insight-text">
+                      {item.insight}
+                    </p>
+
+                    <p className="ai-insight-recommendation">
+                      {item.recommendation}
+                    </p>
+
+                  </div>
+                ))}
+
+              </div>
+
+
 
             </div>
           </section>
         )}
 
 
-        {/* Chatbot tab - chatbot-specific analytics will go here */}
+        {/* ========================================
+            Chatbot Analytics Tab
+        ======================================== */}
         {activeTabName === "Chatbot" && (
-          <PlaceholderTab
-            title="Chatbot Analytics"
-            description="Chatbot opens, conversations started, common questions, menu clicks, and drop-off points will appear here."
-          />
+          <section className="stats-chatbot-grid">
+
+            {/* Chatbot KPI cards */}
+            <section className="stats-kpi-grid">
+
+              <Metric
+                label="Chat Leads"
+                value={chatLeads}
+                subtext="Generated from chatbot"
+                icon={MessageSquareText}
+                variant="orange"
+              />
+
+              <Metric
+                label="Total Conversations"
+                value={chatLeads}
+                subtext="Tracked chatbot sessions"
+                icon={Users}
+                variant="blue"
+              />
+
+              <Metric
+                label="Lead Conversion"
+                value={`${totalLeads > 0
+                  ? Math.round((chatLeads / totalLeads) * 100)
+                  : 0}%`}
+                subtext="Chatbot contribution"
+                icon={CheckCircle2}
+                variant="green"
+              />
+
+            </section>
+
+            {/* Chatbot Insights */}
+            <div className="stats-card">
+              <h3>Chatbot Insights</h3>
+
+              <p className="stats-card-subtitle">
+                AI-powered chatbot performance recommendations.
+              </p>
+
+              <div className="ai-insights-list">
+
+                <div className="ai-insight-item">
+                  <h4>Chatbot Engagement</h4>
+
+                  <p className="ai-insight-text">
+                    {chatLeads} leads were generated from chatbot conversations.
+                  </p>
+
+                  <p className="ai-insight-recommendation">
+                    Continue optimizing chatbot flows to improve lead capture.
+                  </p>
+                </div>
+
+                <div className="ai-insight-item">
+                  <h4>Lead Conversion Opportunity</h4>
+
+                  <p className="ai-insight-text">
+                    Chatbot leads represent {
+                      totalLeads > 0
+                        ? Math.round((chatLeads / totalLeads) * 100)
+                        : 0
+                    }% of all leads.
+                  </p>
+
+                  <p className="ai-insight-recommendation">
+                    Add stronger calls-to-action like tours and pricing prompts.
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+          </section>
         )}
 
-        {/* Surveys tab - survey-specific analytics will go here */}
-        {activeTabName === "Surveys" && (
-          <PlaceholderTab
-            title="Survey Analytics"
-            description="Survey starts, completions, completion rate, abandoned surveys, and answer trends will appear here."
-          />
-        )}
+          {/* ========================================
+              Survey Analytics Tab
+          ======================================== */}
+          {activeTabName === "Surveys" && (
+            <section className="stats-chatbot-grid">
 
-        {/* Audience tab - visitor/device/location data will go here */}
-        {activeTabName === "Audience" && (
-          <PlaceholderTab
-            title="Audience Insights"
-            description="Device type, browser usage, visitor locations, new users, and returning users will appear here."
-          />
-        )}
+              <section className="stats-kpi-grid">
+                <Metric
+                  label="Survey Leads"
+                  value={surveyLeads}
+                  subtext="Generated from assessments"
+                  icon={CheckCircle2}
+                  variant="teal"
+                />
+
+                <Metric
+                  label="Survey Share"
+                  value={`${totalLeads > 0 ? Math.round((surveyLeads / totalLeads) * 100) : 0}%`}
+                  subtext="Of total leads"
+                  icon={ClipboardList}
+                  variant="green"
+                />
+              </section>
+
+              <div className="stats-card">
+                <h3>Survey Insights</h3>
+
+                <p className="stats-card-subtitle">
+                  Smart recommendations based on assessment lead activity.
+                </p>
+
+                <div className="ai-insights-list">
+                  <div className="ai-insight-item">
+                    <h4>Assessment Performance</h4>
+
+                    <p className="ai-insight-text">
+                      {surveyLeads} leads were generated from surveys.
+                    </p>
+
+                    <p className="ai-insight-recommendation">
+                      Keep surveys visible on key pages to capture families who are still researching.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+          )}
+
+          {/* ========================================
+              Audience Analytics Tab
+          ======================================== */}
+          {activeTabName === "Audience" && (
+            <section className="stats-chatbot-grid">
+
+              {/* Audience KPI cards */}
+              <section className="stats-kpi-grid">
+
+                <Metric
+                  label="Visitors"
+                  value={gaData?.totals?.activeUsers || 0}
+                  subtext="Active website visitors"
+                  icon={Users}
+                  variant="blue"
+                />
+
+                <Metric
+                  label="Sessions"
+                  value={gaData?.totals?.sessions || 0}
+                  subtext="Website sessions"
+                  icon={Activity}
+                  variant="green"
+                />
+
+                <Metric
+                  label="Page Views"
+                  value={gaData?.totals?.screenPageViews || 0}
+                  subtext="Viewed pages"
+                  icon={Eye}
+                  variant="purple"
+                />
+
+                <Metric
+                  label="Pages / Session"
+                  value={
+                    gaData?.totals?.sessions > 0
+                      ? (
+                          gaData.totals.screenPageViews /
+                          gaData.totals.sessions
+                        ).toFixed(1)
+                      : "0.0"
+                  }
+                  subtext="Average engagement"
+                  icon={Layers3}
+                  variant="orange"
+                />
+
+              </section>
+
+              {/* Audience Insights */}
+              <div className="stats-card">
+                <h3>Audience Insights</h3>
+
+                <p className="stats-card-subtitle">
+                  AI-powered visitor engagement insights.
+                </p>
+
+                <div className="ai-insights-list">
+
+                  <div className="ai-insight-item">
+                    <h4>Visitor Activity</h4>
+
+                    <p className="ai-insight-text">
+                      {formatNumber(gaData?.totals?.activeUsers || 0)} visitors interacted with the website during the selected period.
+                    </p>
+
+                    <p className="ai-insight-recommendation">
+                      Continue publishing useful content and optimizing landing pages to increase engagement.
+                    </p>
+                  </div>
+
+                  <div className="ai-insight-item">
+                    <h4>Engagement Quality</h4>
+
+                    <p className="ai-insight-text">
+                      Visitors viewed an average of {
+                        gaData?.totals?.sessions > 0
+                          ? (
+                              gaData.totals.screenPageViews /
+                              gaData.totals.sessions
+                            ).toFixed(1)
+                          : "0.0"
+                      } pages per session.
+                    </p>
+
+                    <p className="ai-insight-recommendation">
+                      Higher pages per session usually indicate stronger visitor engagement and exploration.
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+
+            </section>
+          )}
 
         {/* Reports tab - this keeps your existing report history feature */}
         {activeTabName === "Reports" && (
