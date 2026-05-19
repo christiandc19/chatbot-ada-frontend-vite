@@ -90,6 +90,39 @@ const Conversations = ({ user, onLogout }) => {
     return "Chat";
   };
 
+
+
+  // NEW: Converts a saved clientKey into a readable community name.
+  // Example: "evergreen-heights" becomes "Evergreen Heights".
+  // This lets us use clientKey as the real database value,
+  // while showing a nice name in the dashboard table.
+  const formatCommunityName = (clientKey) => {
+    // If the lead has no clientKey yet, show N/A.
+    if (!clientKey) return "N/A";
+
+    // Custom display names for known communities.
+    const communityNames = {
+      "evergreen-heights": "Evergreen Heights",
+      "asbury-heights": "Asbury Heights",
+      "robin-run": "Robin Run",
+      "web-smart-assistant": "Web Smart Assistant",
+    };
+
+    // If the clientKey exists in the list above, use that name.
+    if (communityNames[clientKey]) {
+      return communityNames[clientKey];
+    }
+
+    // Fallback:
+    // If a new clientKey is not listed above,
+    // convert "sample-community" into "Sample Community".
+    return clientKey
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+
   const getLeadSource = (conv) => {
     const rawSource = conv.source || conv.leadSource || "";
 
@@ -578,7 +611,13 @@ const weeklySurveyLeads = conversations.filter(
             <div className="contact-email">{conv.email || "N/A"}</div>
           </td>
 
-          <td>{conv.community || "N/A"}</td>
+          {/* 
+            NEW:
+            Display the readable community name using clientKey.
+            Example:
+            "evergreen-heights" → "Evergreen Heights"
+          */}
+          <td>{formatCommunityName(conv.clientKey)}</td>
 
             <td>
               <span className={getSourceClass(leadSource)}>{leadSource}</span>

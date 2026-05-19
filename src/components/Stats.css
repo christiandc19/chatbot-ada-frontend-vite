@@ -116,7 +116,7 @@
 }
 
 .report-name-field input {
-  width: 260px;
+  width: 220px;
   min-height: 42px;
   padding: 0 78px 0 14px;
   border: 1px solid #cbd5e1;
@@ -623,6 +623,155 @@
 .report-delete-button:hover {
   background: #ffe4e6;
 }
+
+/* ========================================
+   Premium Stats Loading Animation
+======================================== */
+
+.stats-loading {
+  min-height: 320px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 16px;
+}
+
+.stats-loader-spinner {
+  width: 52px;
+  height: 52px;
+
+  border-radius: 999px;
+
+  border: 4px solid #e2e8f0;
+  border-top-color: #2563eb;
+
+  animation: statsSpin 0.9s linear infinite;
+}
+
+.stats-loader-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.2px;
+}
+
+@keyframes statsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================
+   AI Insights Card
+======================================== */
+
+.ai-insights-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.ai-insight-item {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff, #f8fbff);
+}
+
+.ai-insight-item h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ai-insight-text {
+  margin: 0 0 8px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ai-insight-recommendation {
+  margin: 0;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+
+/* ========================================
+   Chatbot Analytics Tab
+======================================== */
+
+.stats-chatbot-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.stats-chatbot-grid .stats-kpi-grid {
+  margin-bottom: 0;
+}
+
+
+/* ========================================
+   Generate Report Tooltip
+======================================== */
+
+.report-generate-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Disabled Generate Report button */
+.stats-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  color: #ffffff;
+
+  box-shadow: none;
+  transform: none;
+}
+
+/* Prevent hover animation when disabled */
+.stats-primary-button:disabled:hover {
+  background: #94a3b8;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Tooltip message */
+.report-tooltip {
+  position: absolute;
+
+  top: calc(100% + 10px);
+  right: 0;
+
+  z-index: 50;
+
+  width: max-content;
+  max-width: 240px;
+
+  padding: 10px 12px;
+
+  border-radius: 12px;
+
+  background: #0f172a;
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+}
+
 
 /* ===============================
    Tablet
