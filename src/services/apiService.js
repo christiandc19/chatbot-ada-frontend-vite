@@ -304,7 +304,7 @@ async login(email, password) {
     // This reuses the existing PUT /leads/{id} endpoint.
     // We first load the current lead so we do not accidentally erase
     // required fields like Email, FirstName, LastName, or Phone.
-    async updateLeadStatus(leadId, status) {
+    async updateLeadStatus(leadId, leadStatusId) {
       const existingLead = await this.getConversationsByLead(leadId);
 
       const payload = {
@@ -312,7 +312,7 @@ async login(email, password) {
         FirstName: existingLead.firstName || "",
         LastName: existingLead.lastName || "",
         Phone: existingLead.phone || "",
-        Status: status,
+        LeadStatusId: leadStatusId ? Number.parseInt(leadStatusId, 10) : null,
       };
 
       const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
@@ -360,7 +360,18 @@ async updateLead(leadId, leadData) {
 }
 
 
-
+  async getLeadStatuses() {
+    const response = await fetch(`${API_BASE_URL}/LeadStatuses`, {
+      headers: this._buildAdminHeaders(),
+    });
+    if (!response.ok) throw new Error(`Failed to fetch lead statuses: ${response.status}`);
+    const data = await response.json();
+    // Handle plain array, $values (ReferenceHandler.Preserve), or OData value wrapper
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.$values)) return data.$values;
+    if (data && Array.isArray(data.value)) return data.value;
+    return [];
+  }
 
   async getLeads() {
     try {
@@ -400,7 +411,7 @@ async updateLead(leadId, leadData) {
           Phone: leadData.phone,
           Source: leadData.source,
           ClientKey: leadData.clientKey,
-          Status: leadData.status,
+          LeadStatusId: leadData.leadStatusId ? Number.parseInt(leadData.leadStatusId, 10) : null,
 
           // This creates an initial conversation/note for the manual lead.
           Conversations: leadData.notes

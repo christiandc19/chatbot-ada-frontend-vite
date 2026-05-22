@@ -6,16 +6,6 @@ import Header from "./Header";
 import apiService from "../services/apiService";
 import { formatLocalTime } from "../utils/dateUtils";
 
-const statusOptions = [
-  "New Lead",
-  "Attempted Contact",
-  "Contacted",
-  "Qualified",
-  "Tour Scheduled",
-  "Converted",
-  "Closed",
-];
-
 // New: options used by the custom Priority dropdown
 const priorityOptions = ["Low", "Medium", "High", "Urgent"];
 
@@ -37,6 +27,9 @@ const ChatHistory = ({ user, onLogout }) => {
   // New: stores dashboard users for the "Assigned To" dropdown
   const [users, setUsers] = useState([]);
 
+  // Stores the list of available lead statuses fetched from the API.
+  const [leadStatuses, setLeadStatuses] = useState([]);
+
 
 // =========================================
 // Lead Overview Draft State
@@ -44,7 +37,7 @@ const ChatHistory = ({ user, onLogout }) => {
 // until the user clicks Save Changes.
 // =========================================
   const [leadOverviewDraft, setLeadOverviewDraft] = useState({
-  status: "New Lead",
+  leadStatusId: "",
   assignedUserId: "",
   priority: "Medium",
 });
@@ -142,21 +135,26 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     useEffect(() => {
       const fetchUsers = async () => {
         try {
-          // Calls apiService.js.
-          // We will add getUsers() in the next step.
           const data = await apiService.getUsers();
-
-          // Makes sure users is always an array.
           setUsers(Array.isArray(data) ? data : []);
         } catch (error) {
           console.error("Failed to load users:", error);
-
-          // Keeps the dropdown from breaking if the request fails.
           setUsers([]);
         }
       };
 
+      const fetchLeadStatuses = async () => {
+        try {
+          const statuses = await apiService.getLeadStatuses();
+          setLeadStatuses(Array.isArray(statuses) ? statuses : []);
+        } catch (err) {
+          console.error("Failed to load lead statuses:", err);
+          setLeadStatuses([{ id: -1, Name: `Error: ${err.message}` }]);
+        }
+      };
+
       fetchUsers();
+      fetchLeadStatuses();
     }, []);
 
   // Load this lead and refresh messages every few seconds.
@@ -275,10 +273,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
 
   // Updates the Status dropdown locally only.
   // Nothing is saved to the backend until the user clicks Save Changes.
-  const handleStatusChange = (newStatus) => {
+  const handleStatusChange = (statusId) => {
     setLeadOverviewDraft((prev) => ({
       ...prev,
-      status: newStatus,
+      leadStatusId: statusId,
     }));
 
     setHasOverviewChanges(true);
@@ -298,7 +296,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
         Phone: leadDetails?.phone || "",
 
         // Editable Lead Overview fields.
-        Status: leadOverviewDraft.status,
+        LeadStatusId: leadOverviewDraft.leadStatusId ? Number.parseInt(leadOverviewDraft.leadStatusId, 10) : null,
         AssignedUserId: leadOverviewDraft.assignedUserId || null,
         Priority: leadOverviewDraft.priority,
       });
@@ -306,7 +304,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
       // Keep this page updated after a successful save.
       setLeadDetails((prev) => ({
         ...(prev || {}),
-        status: leadOverviewDraft.status,
+        leadStatusId: leadOverviewDraft.leadStatusId,
         assignedUserId: leadOverviewDraft.assignedUserId,
         priority: leadOverviewDraft.priority,
       }));
@@ -376,7 +374,12 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     : "Chatbot Lead";
 
   // Current editable status shown in Lead Overview
-    const status = leadOverviewDraft.status;
+  // Resolved to the name string by looking up leadStatusId in leadStatuses.
+  const status = (() => {
+    const targetId = Number(leadOverviewDraft.leadStatusId);
+    const found = leadStatuses.find((s) => Number(s.id ?? s.Id) === targetId);
+    return found ? (found.statusName || found.StatusName || found.name || found.Name || "") : "";
+  })();
 
   const inquiryType =
     leadDetails?.inquiryType ||
@@ -420,10 +423,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     if (!leadDetails) return;
 
     setLeadOverviewDraft({
-      status:
-        leadDetails?.status ||
-        leadDetails?.Status ||
-        "New Lead",
+      leadStatusId:
+        leadDetails?.leadStatusId != null ? Number(leadDetails.leadStatusId) :
+        leadDetails?.LeadStatusId != null ? Number(leadDetails.LeadStatusId) :
+        "",
 
       assignedUserId:
         leadDetails?.assignedUserId ||
@@ -835,12 +838,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                     <button
                       ref={statusButtonRef}
                       type="button"
-                      className={`status-select status-${status
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")}`}
+                      className={`status-select${status ? ` status-${status.toLowerCase().replace(/\s+/g, "-")}` : " status-unset"}`}
                       onClick={handleStatusMenuToggle}
                     >
-                      <span>{status}</span>
+                      <span>{status || "Select Status"}</span>
                       <span className="status-caret">⌄</span>
                     </button>
                   </div>
@@ -855,22 +856,31 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                           width: `${statusMenuPosition.width}px`,
                         }}
                       >
-                        {statusOptions.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className="status-option"
-                            onClick={() => handleStatusChange(option)}
-                          >
-                            <span
-                              className={`status-dot status-dot-${option
-                                .toLowerCase()
-                                .replace(/\s+/g, "-")}`}
-                            />
+                        {leadStatuses.length === 0 && (
+                          <div style={{ padding: "10px 14px", color: "#94a3b8", fontSize: "13px" }}>
+                            No statuses available
+                          </div>
+                        )}
+                        {leadStatuses.map((s) => {
+                          const sId = s.id ?? s.Id;
+                          const sName = s.statusName || s.StatusName || s.name || s.Name || "";
+                          return (
+                            <button
+                              key={sId}
+                              type="button"
+                              className="status-option"
+                              onClick={() => handleStatusChange(sId)}
+                            >
+                              <span
+                                className={`status-dot status-dot-${sName
+                                  .toLowerCase()
+                                  .replace(/\s+/g, "-")}`}
+                              />
 
-                            {option}
-                          </button>
-                        ))}
+                              {sName}
+                            </button>
+                          );
+                        })}
                       </div>,
                       document.body
                     )}

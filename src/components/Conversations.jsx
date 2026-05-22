@@ -67,7 +67,7 @@ const Conversations = ({ user, onLogout }) => {
     phone: "",
     source: "manual",
     clientKey: "web-smart-assistant",
-    status: "New",
+    leadStatusId: "",
     notes: "",
   });
 
@@ -76,6 +76,9 @@ const Conversations = ({ user, onLogout }) => {
 
   // Stores any error from creating a manual lead.
   const [createLeadError, setCreateLeadError] = useState("");
+
+  // Stores the list of available lead statuses fetched from the API.
+  const [leadStatuses, setLeadStatuses] = useState([]);
 
   // Creates the label used in the notification popup.
   // Example: Webform, Survey, Chat
@@ -146,10 +149,14 @@ const Conversations = ({ user, onLogout }) => {
   };
 
 
-  // Returns the saved lead status from the backend.
-  // Defaults to "New Lead" when older leads do not have a status yet.
+  // Returns the saved lead status name from the backend.
+  // Looks up the name from the fetched leadStatuses list using leadStatusId.
+  // Defaults to "New Lead" when the status cannot be resolved.
   const getLeadStatus = (lead) => {
-    return lead?.status || lead?.Status || "New Lead";
+    const statusId = lead?.leadStatusId ?? lead?.LeadStatusId;
+    if (statusId == null) return "New Lead";
+    const found = leadStatuses.find((s) => Number(s.id ?? s.Id) === Number(statusId));
+    return found ? (found.statusName || found.StatusName || found.name || found.Name || "New Lead") : "New Lead";
   };
 
   // Creates a CSS class for each status badge.
@@ -295,6 +302,25 @@ const Conversations = ({ user, onLogout }) => {
     };
 
     fetchConversations(false);
+
+    // Fetch lead statuses once on mount for the dropdown and status display.
+    const fetchLeadStatuses = async () => {
+      try {
+        const statuses = await apiService.getLeadStatuses();
+        const list = Array.isArray(statuses) ? statuses : [];
+        setLeadStatuses(list);
+        if (list.length > 0) {
+          setNewLead((prev) => ({
+            ...prev,
+            leadStatusId: prev.leadStatusId === "" ? (list[0].id ?? list[0].Id) : prev.leadStatusId,
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch lead statuses:", err);
+      }
+    };
+
+    fetchLeadStatuses();
 
     const pollingInterval = setInterval(() => {
       fetchConversations(true);
@@ -509,7 +535,7 @@ const weeklySurveyLeads = conversations.filter(
       phone: "",
       source: "manual",
       clientKey: "web-smart-assistant",
-      status: "New",
+      leadStatusId: leadStatuses.length > 0 ? (leadStatuses[0].id ?? leadStatuses[0].Id) : "",
       notes: "",
     });
 
@@ -1142,14 +1168,18 @@ const weeklySurveyLeads = conversations.filter(
                 <label>
                   Status
                   <select
-                    name="status"
-                    value={newLead.status}
+                    name="leadStatusId"
+                    value={newLead.leadStatusId}
                     onChange={handleNewLeadChange}
                   >
-                    <option value="New">New</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Closed">Closed</option>
+                    {leadStatuses.length === 0 && (
+                      <option value="">Loading statuses...</option>
+                    )}
+                    {leadStatuses.map((s) => (
+                      <option key={s.id ?? s.Id} value={s.id ?? s.Id}>
+                        {s.statusName || s.StatusName || s.name || s.Name}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
