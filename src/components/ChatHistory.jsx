@@ -69,13 +69,25 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
   const firstName = leadDetails?.firstName || "N/A";
   const lastName = leadDetails?.lastName || "N/A";
 
-  // Load locally saved notes for this lead.
-  useEffect(() => {
-    const savedNotes = localStorage.getItem(`lead-notes-${leadId}`);
+  const [notesLoading, setNotesLoading] = useState(false);
 
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
-    }
+  // Load notes for this lead from the backend.
+  useEffect(() => {
+    if (!leadId) return;
+
+    const fetchNotes = async () => {
+      try {
+        setNotesLoading(true);
+        const data = await apiService.getNotesByLead(leadId);
+        setNotes(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load notes:", err);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+
+    fetchNotes();
   }, [leadId]);
 
   // Close the status dropdown when the user clicks outside of it.
@@ -209,24 +221,30 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     navigate("/conversations");
   };
 
-  // Add an internal note and save it in localStorage for this lead.
-  const handleAddNote = () => {
+  const [isAddingNote, setIsAddingNote] = useState(false);
+
+  // Add an internal note by calling the backend API.
+  const handleAddNote = async () => {
     if (!newNote.trim()) return;
 
-    const newNoteObject = {
-      id: Date.now(),
-      text: newNote,
-      createdAt: new Date().toISOString(),
-      createdBy: user?.name || "Admin",
-    };
+    try {
+      setIsAddingNote(true);
 
-    const updatedNotes = [newNoteObject, ...notes];
+      const created = await apiService.createNote({
+        message: newNote.trim(),
+        createdBy: user?.id,
+        leadsId: Number(leadId),
+      });
 
-    setNotes(updatedNotes);
-    localStorage.setItem(`lead-notes-${leadId}`, JSON.stringify(updatedNotes));
-
-    setNewNote("");
-    setActiveTab("notes");
+      setNotes((prev) => [created, ...prev]);
+      setNewNote("");
+      setActiveTab("notes");
+    } catch (err) {
+      console.error("Failed to add note:", err);
+      alert("Failed to save note. Please try again.");
+    } finally {
+      setIsAddingNote(false);
+    }
   };
 
   // Position and open/close the custom status dropdown.
@@ -754,7 +772,9 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
 
                 <div className="notes-content">
                   {activeTab === "notes" ? (
-                    notes.length === 0 ? (
+                    notesLoading ? (
+                      <div className="empty-notes-state"><p>Loading notes...</p></div>
+                    ) : notes.length === 0 ? (
                       <div className="empty-notes-state">
                         <h3>No Notes Yet</h3>
                         <p>Add a note below to keep track of this lead.</p>
@@ -764,7 +784,11 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                         {notes.map((note) => (
                           <div key={note.id} className="note-card">
                             <div className="note-card-header">
-                              <strong>{note.createdBy}</strong>
+                              <strong>
+                                {users.find((u) => u.id === note.createdBy)
+                                  ? `${users.find((u) => u.id === note.createdBy).firstName || ""} ${users.find((u) => u.id === note.createdBy).lastName || ""}`.trim()
+                                  : `User #${note.createdBy}`}
+                              </strong>
                               <span>
                                 {new Date(note.createdAt).toLocaleDateString()} •{" "}
                                 {new Date(note.createdAt).toLocaleTimeString([], {
@@ -774,7 +798,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                               </span>
                             </div>
 
-                            <p>{note.text}</p>
+                            <p>{note.message}</p>
                           </div>
                         ))}
                       </div>
@@ -818,8 +842,12 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                 <div className="note-composer-footer">
                   <span>Internal Note</span>
 
-                  <button className="add-note-submit" onClick={handleAddNote}>
-                    Add Note
+                  <button
+                    className="add-note-submit"
+                    onClick={handleAddNote}
+                    disabled={isAddingNote}
+                  >
+                    {isAddingNote ? "Saving..." : "Add Note"}
                   </button>
                 </div>
               </section>

@@ -439,6 +439,24 @@ async updateLead(leadId, leadData) {
 
 
 
+  async getNotesByLead(leadId) {
+    const response = await fetch(`${API_BASE_URL}/Notes/lead/${leadId}`, {
+      headers: this._buildAdminHeaders(),
+    });
+    if (!response.ok) throw new Error(`Failed to fetch notes for lead ${leadId}`);
+    return response.json();
+  }
+
+  async createNote({ message, createdBy, leadsId }) {
+    const response = await fetch(`${API_BASE_URL}/Notes`, {
+      method: "POST",
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ Message: message, CreatedBy: createdBy, LeadsId: leadsId }),
+    });
+    if (!response.ok) throw new Error("Failed to create note");
+    return response.json();
+  }
+
   async getConversationsByLead(leadId) {
     try {
       const response = await fetch(`${API_BASE_URL}/Leads/${leadId}/conversations`, {
