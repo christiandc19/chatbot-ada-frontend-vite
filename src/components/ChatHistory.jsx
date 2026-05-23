@@ -607,14 +607,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
             <div className="lead-meta-row">
               <span>{leadSourceLabel}</span>
               <span>•</span>
-              <span>{communityName || "No community assigned"}</span>
+              <span>{communityName} {formatCommunityName(leadDetails?.clientKey)} </span>
             </div>
           </div>
 
-          <div className="lead-actions">
-            <button className="lead-action-btn">Assign</button>
-            <button className="lead-action-btn">Actions</button>
-          </div>
         </div>
 
         {loading ? (
