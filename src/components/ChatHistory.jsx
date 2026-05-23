@@ -627,6 +627,24 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                     <InfoRow label="Last Name" value={lastName} />
                     <InfoRow label="Email" value={leadEmail} />
                     <InfoRow label="Phone" value={leadPhone} />
+                    {/* NEW: Lead creation date */}
+                    <InfoRow
+                      label="Lead Created"
+                      value={
+                        leadDetails?.createdAt
+                          ? new Date(leadDetails.createdAt).toLocaleString([], {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }) +
+                            " • " +
+                            new Date(leadDetails.createdAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })
+                          : "—"
+                      }
+                    />
 
                     {!isSurveyLead && (
                       <>
