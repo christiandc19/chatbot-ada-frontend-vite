@@ -23,6 +23,14 @@ const Conversations = ({ user, onLogout }) => {
   // Controls the dropdown filter beside the search box.
   // Example values: all, source:survey form, source:webform, community:none
   const [leadFilter, setLeadFilter] = useState("all");
+
+  // NEW: Controls which community/client leads are shown.
+  // "all" means show leads from every community.
+  const [selectedCommunity, setSelectedCommunity] = useState("all");
+
+  // NEW: Stores the community options shown in the dropdown.
+  const [communities, setCommunities] = useState([]);  
+
   // Notification and polling helpers
   const { showNotification } = useNotification();
 
@@ -59,7 +67,7 @@ const Conversations = ({ user, onLogout }) => {
     phone: "",
     source: "manual",
     clientKey: "web-smart-assistant",
-    status: "New",
+    leadStatusId: "",
     notes: "",
   });
 
@@ -68,6 +76,9 @@ const Conversations = ({ user, onLogout }) => {
 
   // Stores any error from creating a manual lead.
   const [createLeadError, setCreateLeadError] = useState("");
+
+  // Stores the list of available lead statuses fetched from the API.
+  const [leadStatuses, setLeadStatuses] = useState([]);
 
   // Creates the label used in the notification popup.
   // Example: Webform, Survey, Chat
@@ -81,6 +92,39 @@ const Conversations = ({ user, onLogout }) => {
     // Your current dashboard treats empty source as Chatbot.
     return "Chat";
   };
+
+
+
+  // NEW: Converts a saved clientKey into a readable community name.
+  // Example: "evergreen-heights" becomes "Evergreen Heights".
+  // This lets us use clientKey as the real database value,
+  // while showing a nice name in the dashboard table.
+  const formatCommunityName = (clientKey) => {
+    // If the lead has no clientKey yet, show N/A.
+    if (!clientKey) return "N/A";
+
+    // Custom display names for known communities.
+    const communityNames = {
+      "evergreen-heights": "Evergreen Heights",
+      "asbury-heights": "Asbury Heights",
+      "robin-run": "Robin Run",
+      "web-smart-assistant": "Web Smart Assistant",
+    };
+
+    // If the clientKey exists in the list above, use that name.
+    if (communityNames[clientKey]) {
+      return communityNames[clientKey];
+    }
+
+    // Fallback:
+    // If a new clientKey is not listed above,
+    // convert "sample-community" into "Sample Community".
+    return clientKey
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
 
   const getLeadSource = (conv) => {
     const rawSource = conv.source || conv.leadSource || "";
@@ -105,10 +149,14 @@ const Conversations = ({ user, onLogout }) => {
   };
 
 
-  // Returns the saved lead status from the backend.
-  // Defaults to "New Lead" when older leads do not have a status yet.
+  // Returns the saved lead status name from the backend.
+  // Looks up the name from the fetched leadStatuses list using leadStatusId.
+  // Defaults to "New Lead" when the status cannot be resolved.
   const getLeadStatus = (lead) => {
-    return lead?.status || lead?.Status || "New Lead";
+    const statusId = lead?.leadStatusId ?? lead?.LeadStatusId;
+    if (statusId == null) return "New Lead";
+    const found = leadStatuses.find((s) => Number(s.id ?? s.Id) === Number(statusId));
+    return found ? (found.statusName || found.StatusName || found.name || found.Name || "New Lead") : "New Lead";
   };
 
   // Creates a CSS class for each status badge.
@@ -131,6 +179,28 @@ const Conversations = ({ user, onLogout }) => {
         }
 
         const data = await apiService.getLeads();
+
+        // NEW: Load communities from the database so the dropdown is dynamic.
+        const communitiesData = await apiService.getCommunities();
+
+        // NEW: Convert community website URLs into client keys.
+        // Example: https://asburyheights.org → asbury-heights
+        const formattedCommunities = communitiesData
+          .map((community) => {
+            if (!community.urlAddress) return null;
+
+            return community.urlAddress
+              .replace(/^https?:\/\//, "")
+              .replace(/^www\./, "")
+              .split(".")[0]
+              .toLowerCase()
+              .replace("asburyheights", "asbury-heights");
+          })
+          .filter(Boolean);
+
+        // NEW: Remove duplicates before saving dropdown options.
+        setCommunities([...new Set(formattedCommunities)]);
+
 
                 // Create a Set of the current lead IDs.
         // This helps us compare old leads vs new leads.
@@ -233,6 +303,25 @@ const Conversations = ({ user, onLogout }) => {
 
     fetchConversations(false);
 
+    // Fetch lead statuses once on mount for the dropdown and status display.
+    const fetchLeadStatuses = async () => {
+      try {
+        const statuses = await apiService.getLeadStatuses();
+        const list = Array.isArray(statuses) ? statuses : [];
+        setLeadStatuses(list);
+        if (list.length > 0) {
+          setNewLead((prev) => ({
+            ...prev,
+            leadStatusId: prev.leadStatusId === "" ? (list[0].id ?? list[0].Id) : prev.leadStatusId,
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch lead statuses:", err);
+      }
+    };
+
+    fetchLeadStatuses();
+
     const pollingInterval = setInterval(() => {
       fetchConversations(true);
     }, 5000);
@@ -240,7 +329,7 @@ const Conversations = ({ user, onLogout }) => {
     return () => {
       clearInterval(pollingInterval);
     };
-  }, []);
+  }, [selectedCommunity]);
 
 
   // This closes the Actions dropdown when clicking outside of it.
@@ -300,6 +389,16 @@ const Conversations = ({ user, onLogout }) => {
 const filteredConversations = Array.isArray(conversations)
   ? conversations.filter((conv) => {
       if (!conv) return false;
+
+    // NEW: Community/client filter.
+    // If "all" is selected, show every lead.
+    // Otherwise, only show leads that match the selected clientKey.
+    const leadClientKey = String(conv.clientKey || "").toLowerCase();
+
+    const matchesSelectedCommunity =
+      selectedCommunity === "all" || leadClientKey === selectedCommunity;
+
+if (!matchesSelectedCommunity) return false;
 
       const query = searchQuery.trim().toLowerCase();
 
@@ -436,7 +535,7 @@ const weeklySurveyLeads = conversations.filter(
       phone: "",
       source: "manual",
       clientKey: "web-smart-assistant",
-      status: "New",
+      leadStatusId: leadStatuses.length > 0 ? (leadStatuses[0].id ?? leadStatuses[0].Id) : "",
       notes: "",
     });
 
@@ -538,7 +637,13 @@ const weeklySurveyLeads = conversations.filter(
             <div className="contact-email">{conv.email || "N/A"}</div>
           </td>
 
-          <td>{conv.community || "N/A"}</td>
+          {/* 
+            NEW:
+            Display the readable community name using clientKey.
+            Example:
+            "evergreen-heights" → "Evergreen Heights"
+          */}
+          <td>{formatCommunityName(conv.clientKey)}</td>
 
             <td>
               <span className={getSourceClass(leadSource)}>{leadSource}</span>
@@ -615,6 +720,25 @@ const weeklySurveyLeads = conversations.filter(
 
         <div className="conversations-toolbar">
           <div className="toolbar-left">
+
+          {/* NEW: Community filter dropdown */}
+          <select
+            className="community-filter-dropdown"
+            value={selectedCommunity}
+            onChange={(e) => {
+              setSelectedCommunity(e.target.value);
+              setCurrentPage(1);
+            }}
+          >
+            <option value="all">All Communities</option>
+
+            {communities.map((community) => (
+              <option key={community} value={community}>
+                {community}
+              </option>
+            ))}
+          </select>              
+
 
             {/* Search box */}
             <div className="search-box">
@@ -1044,14 +1168,18 @@ const weeklySurveyLeads = conversations.filter(
                 <label>
                   Status
                   <select
-                    name="status"
-                    value={newLead.status}
+                    name="leadStatusId"
+                    value={newLead.leadStatusId}
                     onChange={handleNewLeadChange}
                   >
-                    <option value="New">New</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Closed">Closed</option>
+                    {leadStatuses.length === 0 && (
+                      <option value="">Loading statuses...</option>
+                    )}
+                    {leadStatuses.map((s) => (
+                      <option key={s.id ?? s.Id} value={s.id ?? s.Id}>
+                        {s.statusName || s.StatusName || s.name || s.Name}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>

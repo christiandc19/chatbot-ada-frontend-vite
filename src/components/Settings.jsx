@@ -5,6 +5,24 @@ import Header from "./Header";
 import apiService from "../services/apiService";
 import "./Settings.css";
 
+import {
+  UserPlus,
+  Users,
+  Lock,
+  Building2,
+  Building,
+  Bot,
+  ClipboardList,
+  FileText,
+  BarChart3,
+  Bell,
+  CalendarDays,
+  Brain,
+  Plug,
+  ChevronRight,
+} from "lucide-react";
+
+
 const Settings = ({ user, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -246,37 +264,190 @@ const Settings = ({ user, onLogout }) => {
     }
   };
 
+
+    // =====================================================
+    // SETTINGS GROUPS
+    // Controls what cards appear on the Settings page.
+    //
+    // active: true  = clickable and working now
+    // active: false = grayed out until we build that feature
+    // =====================================================
+
+    const settingsGroups = [
+      {
+        title: "Organization",
+        description: "Manage users, passwords, and account access.",
+        items: [
+          {
+            icon: UserPlus,
+            title: "Add User",
+            description: "Create a new dashboard user.",
+            active: true,
+            action: () => setIsModalOpen(true),
+          },
+          {
+            icon: Users,
+            title: "Update User",
+            description: "Edit existing user information.",
+            active: true,
+            action: () => navigate("/settings/update-user"),
+          },
+          {
+            icon: Lock,
+            title: "Change Password",
+            description: "Update your account password.",
+            active: true,
+            action: () => setIsPasswordModalOpen(true),
+          },
+        ],
+      },
+      {
+        title: "Products",
+        description: "Configure Web Smart Assistant tools.",
+        items: [
+          {
+            icon: Bot,
+            title: "Web Assistant",
+            description: "Chatbot settings, launcher, flows, and lead capture.",
+            active: false,
+            action: () => console.log("Web Assistant coming soon"),
+          },
+          {
+            icon: ClipboardList,
+            title: "Surveys",
+            description: "Survey settings, result screens, and scoring.",
+            active: false,
+            action: () => console.log("Surveys coming soon"),
+          },
+          {
+            icon: FileText,
+            title: "Webforms",
+            description: "Webform fields, success message, and styling.",
+            active: false,
+            action: () => console.log("Webforms coming soon"),
+          },
+        ],
+      },
+      {
+        title: "Analytics & Alerts",
+        description: "Manage analytics, notifications, and reporting.",
+        items: [
+          {
+            icon: BarChart3,
+            title: "Analytics Connection",
+            description: "GA4, source attribution, and funnel tracking.",
+            active: false,
+            action: () => console.log("Analytics coming soon"),
+          },
+          {
+            icon: Bell,
+            title: "Notifications",
+            description: "New lead, survey, and tour request alerts.",
+            active: false,
+            action: () => console.log("Notifications coming soon"),
+          },
+          {
+            icon: CalendarDays,
+            title: "Tours & Calendars",
+            description: "Tour availability, reminders, and scheduling rules.",
+            active: false,
+            action: () => console.log("Tours coming soon"),
+          },
+        ],
+      },
+      {
+        title: "Advanced",
+        description: "AI behavior and integrations.",
+        items: [
+          {
+            icon: Brain,
+            title: "AI Settings",
+            description: "Assistant tone, summaries, and suggested actions.",
+            active: false,
+            action: () => console.log("AI Settings coming soon"),
+          },
+          {
+            icon: Plug,
+            title: "Integrations",
+            description: "CRM, webhooks, and external tools.",
+            active: false,
+            action: () => console.log("Integrations coming soon"),
+          },
+        ],
+      },
+    ];
+
+
   return (
     <div className="settings-page">
       <Header user={user} onLogout={onLogout} />
 
       <main className="settings-content">
-        <div className="page-title-section">
-          <div className="page-icon">⚙️</div>
-          <h1 className="page-title">Settings</h1>
-        </div>
+          {/* =====================================================
+              SETTINGS PAGE HEADER
+          ===================================================== */}
 
-        <div className="settings-btn">
-          <button className="settings-action settings-action-primary" onClick={() => setIsModalOpen(true)}>
-            Add User
-          </button>
+          <div className="page-title-section">
+            <div>
+              {/* Small label above title */}
+              <p className="settings-eyebrow">Platform Settings</p>
 
-          <button className="settings-action settings-action-primary" onClick={() => navigate("/settings/update-user")}>
-            Update User
-          </button>
+              {/* Main page title */}
+              <h1 className="page-title">Settings</h1>
 
-          <button className="settings-action settings-action-primary" onClick={() => setIsPasswordModalOpen(true)}>
-            Change Password
-          </button>
+              {/* Page description */}
+              <p className="page-subtitle">
+                Manage communities, users, analytics, products,
+                notifications, and platform behavior.
+              </p>
+            </div>
+          </div>
 
-          <button className="settings-action settings-action-primary" onClick={() => setIsAddCompanyModalOpen(true)}>
-            Add Company
-          </button>
+      <div className="settings-grid">
+        {settingsGroups.map((group) => (
+          <section className="settings-group-card" key={group.title}>
+            <div className="settings-group-header">
+              <h2>{group.title}</h2>
+              <p>{group.description}</p>
+            </div>
 
-          <button className="settings-action settings-action-primary" onClick={() => navigate("/settings/update-company")}>
-            Update Company
-          </button>
-        </div>
+            <div className="settings-list">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <button
+                    type="button"
+                    className={`settings-list-item ${!item.active ? "settings-list-item-disabled" : ""}`}                    
+                    key={item.title}
+                    onClick={() => {
+                    // Do nothing when the feature is inactive.
+                    // This keeps the UI visible but prevents users from clicking unfinished features.
+                    if (!item.active) return;
+
+                    item.action();
+                  }}
+                    disabled={!item.active}
+                  >
+                    <span className="settings-icon-wrap">
+                      <Icon size={20} />
+                    </span>
+
+                    <span className="settings-item-copy">
+                      <strong>{item.title}</strong>
+                      <small>{item.description}</small>
+                    </span>
+
+                    <ChevronRight size={20} className="settings-chevron" />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+
+
       </main>
 
       {isModalOpen && (

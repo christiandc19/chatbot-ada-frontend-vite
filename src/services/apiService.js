@@ -152,12 +152,37 @@ async login(email, password) {
   }
 
   async createCommunity(communityData) {
-    const payload = {
-      Email: communityData.email,
-      Phone: communityData.phone,
-      UrlAddress: communityData.urlAddress,
-      CompanyId: communityData.companyId
-    };
+  // =====================================================
+  // COMMUNITY CREATE PAYLOAD
+  // Sends all community configuration fields to backend.
+  // =====================================================
+
+  const payload = {
+    // Community identity
+    ClientKey: communityData.clientKey,
+    CommunityName: communityData.communityName,
+
+    // Contact info
+    Email: communityData.email,
+    Phone: communityData.phone,
+
+    // URLs / branding
+    UrlAddress: communityData.urlAddress,
+    Website: communityData.website,
+    LogoUrl: communityData.logoUrl,
+    Address: communityData.address,
+
+    // Status
+    Status: communityData.status,
+
+    // Product enablement
+    WebAssistantEnabled: communityData.webAssistantEnabled,
+    SurveysEnabled: communityData.surveysEnabled,
+    WebformsEnabled: communityData.webformsEnabled,
+
+    // Company relationship
+    CompanyId: communityData.companyId,
+  };
 
     const response = await fetch(`${API_BASE_URL}/Communities`, {
       method: "POST",
@@ -178,13 +203,39 @@ async login(email, password) {
   }
 
   async updateCommunity(communityData) {
-    const payload = {
-      Id: communityData.id,
-      Email: communityData.email,
-      Phone: communityData.phone,
-      UrlAddress: communityData.urlAddress,
-      CompanyId: communityData.companyId
-    };
+  // =====================================================
+  // COMMUNITY UPDATE PAYLOAD
+  // Sends updated community configuration data.
+  // =====================================================
+
+  const payload = {
+    Id: communityData.id,
+
+    // Community identity
+    ClientKey: communityData.clientKey,
+    CommunityName: communityData.communityName,
+
+    // Contact info
+    Email: communityData.email,
+    Phone: communityData.phone,
+
+    // URLs / branding
+    UrlAddress: communityData.urlAddress,
+    Website: communityData.website,
+    LogoUrl: communityData.logoUrl,
+    Address: communityData.address,
+
+    // Status
+    Status: communityData.status,
+
+    // Product enablement
+    WebAssistantEnabled: communityData.webAssistantEnabled,
+    SurveysEnabled: communityData.surveysEnabled,
+    WebformsEnabled: communityData.webformsEnabled,
+
+    // Company relationship
+    CompanyId: communityData.companyId,
+  };
 
     const response = await fetch(`${API_BASE_URL}/Communities/${communityData.id}`, {
       method: "PUT",
@@ -253,7 +304,7 @@ async login(email, password) {
     // This reuses the existing PUT /leads/{id} endpoint.
     // We first load the current lead so we do not accidentally erase
     // required fields like Email, FirstName, LastName, or Phone.
-    async updateLeadStatus(leadId, status) {
+    async updateLeadStatus(leadId, leadStatusId) {
       const existingLead = await this.getConversationsByLead(leadId);
 
       const payload = {
@@ -261,7 +312,7 @@ async login(email, password) {
         FirstName: existingLead.firstName || "",
         LastName: existingLead.lastName || "",
         Phone: existingLead.phone || "",
-        Status: status,
+        LeadStatusId: leadStatusId ? Number.parseInt(leadStatusId, 10) : null,
       };
 
       const response = await fetch(`${API_BASE_URL}/leads/${leadId}`, {
@@ -309,7 +360,18 @@ async updateLead(leadId, leadData) {
 }
 
 
-
+  async getLeadStatuses() {
+    const response = await fetch(`${API_BASE_URL}/LeadStatuses`, {
+      headers: this._buildAdminHeaders(),
+    });
+    if (!response.ok) throw new Error(`Failed to fetch lead statuses: ${response.status}`);
+    const data = await response.json();
+    // Handle plain array, $values (ReferenceHandler.Preserve), or OData value wrapper
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.$values)) return data.$values;
+    if (data && Array.isArray(data.value)) return data.value;
+    return [];
+  }
 
   async getLeads() {
     try {
@@ -349,7 +411,7 @@ async updateLead(leadId, leadData) {
           Phone: leadData.phone,
           Source: leadData.source,
           ClientKey: leadData.clientKey,
-          Status: leadData.status,
+          LeadStatusId: leadData.leadStatusId ? Number.parseInt(leadData.leadStatusId, 10) : null,
 
           // This creates an initial conversation/note for the manual lead.
           Conversations: leadData.notes
@@ -376,6 +438,24 @@ async updateLead(leadId, leadData) {
       }
 
 
+
+  async getNotesByLead(leadId) {
+    const response = await fetch(`${API_BASE_URL}/Notes/lead/${leadId}`, {
+      headers: this._buildAdminHeaders(),
+    });
+    if (!response.ok) throw new Error(`Failed to fetch notes for lead ${leadId}`);
+    return response.json();
+  }
+
+  async createNote({ message, createdBy, leadsId }) {
+    const response = await fetch(`${API_BASE_URL}/Notes`, {
+      method: "POST",
+      headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ Message: message, CreatedBy: createdBy, LeadsId: leadsId }),
+    });
+    if (!response.ok) throw new Error("Failed to create note");
+    return response.json();
+  }
 
   async getConversationsByLead(leadId) {
     try {

@@ -6,16 +6,6 @@ import Header from "./Header";
 import apiService from "../services/apiService";
 import { formatLocalTime } from "../utils/dateUtils";
 
-const statusOptions = [
-  "New Lead",
-  "Attempted Contact",
-  "Contacted",
-  "Qualified",
-  "Tour Scheduled",
-  "Converted",
-  "Closed",
-];
-
 // New: options used by the custom Priority dropdown
 const priorityOptions = ["Low", "Medium", "High", "Urgent"];
 
@@ -37,6 +27,9 @@ const ChatHistory = ({ user, onLogout }) => {
   // New: stores dashboard users for the "Assigned To" dropdown
   const [users, setUsers] = useState([]);
 
+  // Stores the list of available lead statuses fetched from the API.
+  const [leadStatuses, setLeadStatuses] = useState([]);
+
 
 // =========================================
 // Lead Overview Draft State
@@ -44,7 +37,7 @@ const ChatHistory = ({ user, onLogout }) => {
 // until the user clicks Save Changes.
 // =========================================
   const [leadOverviewDraft, setLeadOverviewDraft] = useState({
-  status: "New Lead",
+  leadStatusId: "",
   assignedUserId: "",
   priority: "Medium",
 });
@@ -76,13 +69,25 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
   const firstName = leadDetails?.firstName || "N/A";
   const lastName = leadDetails?.lastName || "N/A";
 
-  // Load locally saved notes for this lead.
-  useEffect(() => {
-    const savedNotes = localStorage.getItem(`lead-notes-${leadId}`);
+  const [notesLoading, setNotesLoading] = useState(false);
 
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
-    }
+  // Load notes for this lead from the backend.
+  useEffect(() => {
+    if (!leadId) return;
+
+    const fetchNotes = async () => {
+      try {
+        setNotesLoading(true);
+        const data = await apiService.getNotesByLead(leadId);
+        setNotes(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load notes:", err);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+
+    fetchNotes();
   }, [leadId]);
 
   // Close the status dropdown when the user clicks outside of it.
@@ -142,21 +147,26 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     useEffect(() => {
       const fetchUsers = async () => {
         try {
-          // Calls apiService.js.
-          // We will add getUsers() in the next step.
           const data = await apiService.getUsers();
-
-          // Makes sure users is always an array.
           setUsers(Array.isArray(data) ? data : []);
         } catch (error) {
           console.error("Failed to load users:", error);
-
-          // Keeps the dropdown from breaking if the request fails.
           setUsers([]);
         }
       };
 
+      const fetchLeadStatuses = async () => {
+        try {
+          const statuses = await apiService.getLeadStatuses();
+          setLeadStatuses(Array.isArray(statuses) ? statuses : []);
+        } catch (err) {
+          console.error("Failed to load lead statuses:", err);
+          setLeadStatuses([{ id: -1, Name: `Error: ${err.message}` }]);
+        }
+      };
+
       fetchUsers();
+      fetchLeadStatuses();
     }, []);
 
   // Load this lead and refresh messages every few seconds.
@@ -211,24 +221,30 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     navigate("/conversations");
   };
 
-  // Add an internal note and save it in localStorage for this lead.
-  const handleAddNote = () => {
+  const [isAddingNote, setIsAddingNote] = useState(false);
+
+  // Add an internal note by calling the backend API.
+  const handleAddNote = async () => {
     if (!newNote.trim()) return;
 
-    const newNoteObject = {
-      id: Date.now(),
-      text: newNote,
-      createdAt: new Date().toISOString(),
-      createdBy: user?.name || "Admin",
-    };
+    try {
+      setIsAddingNote(true);
 
-    const updatedNotes = [newNoteObject, ...notes];
+      const created = await apiService.createNote({
+        message: newNote.trim(),
+        createdBy: user?.id,
+        leadsId: Number(leadId),
+      });
 
-    setNotes(updatedNotes);
-    localStorage.setItem(`lead-notes-${leadId}`, JSON.stringify(updatedNotes));
-
-    setNewNote("");
-    setActiveTab("notes");
+      setNotes((prev) => [created, ...prev]);
+      setNewNote("");
+      setActiveTab("notes");
+    } catch (err) {
+      console.error("Failed to add note:", err);
+      alert("Failed to save note. Please try again.");
+    } finally {
+      setIsAddingNote(false);
+    }
   };
 
   // Position and open/close the custom status dropdown.
@@ -246,12 +262,39 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     setShowStatusMenu((prev) => !prev);
   };
 
+
+
+  // NEW:
+  // Converts clientKey into a readable community name.
+  // Example: "evergreen-heights" → "Evergreen Heights"
+  const formatCommunityName = (clientKey) => {
+    if (!clientKey) return "—";
+
+    const communityNames = {
+      "evergreen-heights": "Evergreen Heights",
+      "asbury-heights": "Asbury Heights",
+      "robin-run": "Robin Run",
+      "web-smart-assistant": "Web Smart Assistant",
+    };
+
+    if (communityNames[clientKey]) {
+      return communityNames[clientKey];
+    }
+
+    return clientKey
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+
+
   // Updates the Status dropdown locally only.
   // Nothing is saved to the backend until the user clicks Save Changes.
-  const handleStatusChange = (newStatus) => {
+  const handleStatusChange = (statusId) => {
     setLeadOverviewDraft((prev) => ({
       ...prev,
-      status: newStatus,
+      leadStatusId: statusId,
     }));
 
     setHasOverviewChanges(true);
@@ -271,7 +314,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
         Phone: leadDetails?.phone || "",
 
         // Editable Lead Overview fields.
-        Status: leadOverviewDraft.status,
+        LeadStatusId: leadOverviewDraft.leadStatusId ? Number.parseInt(leadOverviewDraft.leadStatusId, 10) : null,
         AssignedUserId: leadOverviewDraft.assignedUserId || null,
         Priority: leadOverviewDraft.priority,
       });
@@ -279,7 +322,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
       // Keep this page updated after a successful save.
       setLeadDetails((prev) => ({
         ...(prev || {}),
-        status: leadOverviewDraft.status,
+        leadStatusId: leadOverviewDraft.leadStatusId,
         assignedUserId: leadOverviewDraft.assignedUserId,
         priority: leadOverviewDraft.priority,
       }));
@@ -349,7 +392,12 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     : "Chatbot Lead";
 
   // Current editable status shown in Lead Overview
-    const status = leadOverviewDraft.status;
+  // Resolved to the name string by looking up leadStatusId in leadStatuses.
+  const status = (() => {
+    const targetId = Number(leadOverviewDraft.leadStatusId);
+    const found = leadStatuses.find((s) => Number(s.id ?? s.Id) === targetId);
+    return found ? (found.statusName || found.StatusName || found.name || found.Name || "") : "";
+  })();
 
   const inquiryType =
     leadDetails?.inquiryType ||
@@ -393,10 +441,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     if (!leadDetails) return;
 
     setLeadOverviewDraft({
-      status:
-        leadDetails?.status ||
-        leadDetails?.Status ||
-        "New Lead",
+      leadStatusId:
+        leadDetails?.leadStatusId != null ? Number(leadDetails.leadStatusId) :
+        leadDetails?.LeadStatusId != null ? Number(leadDetails.LeadStatusId) :
+        "",
 
       assignedUserId:
         leadDetails?.assignedUserId ||
@@ -724,7 +772,9 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
 
                 <div className="notes-content">
                   {activeTab === "notes" ? (
-                    notes.length === 0 ? (
+                    notesLoading ? (
+                      <div className="empty-notes-state"><p>Loading notes...</p></div>
+                    ) : notes.length === 0 ? (
                       <div className="empty-notes-state">
                         <h3>No Notes Yet</h3>
                         <p>Add a note below to keep track of this lead.</p>
@@ -734,7 +784,11 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                         {notes.map((note) => (
                           <div key={note.id} className="note-card">
                             <div className="note-card-header">
-                              <strong>{note.createdBy}</strong>
+                              <strong>
+                                {users.find((u) => u.id === note.createdBy)
+                                  ? `${users.find((u) => u.id === note.createdBy).firstName || ""} ${users.find((u) => u.id === note.createdBy).lastName || ""}`.trim()
+                                  : `User #${note.createdBy}`}
+                              </strong>
                               <span>
                                 {new Date(note.createdAt).toLocaleDateString()} •{" "}
                                 {new Date(note.createdAt).toLocaleTimeString([], {
@@ -744,7 +798,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                               </span>
                             </div>
 
-                            <p>{note.text}</p>
+                            <p>{note.message}</p>
                           </div>
                         ))}
                       </div>
@@ -788,8 +842,12 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                 <div className="note-composer-footer">
                   <span>Internal Note</span>
 
-                  <button className="add-note-submit" onClick={handleAddNote}>
-                    Add Note
+                  <button
+                    className="add-note-submit"
+                    onClick={handleAddNote}
+                    disabled={isAddingNote}
+                  >
+                    {isAddingNote ? "Saving..." : "Add Note"}
                   </button>
                 </div>
               </section>
@@ -808,12 +866,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                     <button
                       ref={statusButtonRef}
                       type="button"
-                      className={`status-select status-${status
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")}`}
+                      className={`status-select${status ? ` status-${status.toLowerCase().replace(/\s+/g, "-")}` : " status-unset"}`}
                       onClick={handleStatusMenuToggle}
                     >
-                      <span>{status}</span>
+                      <span>{status || "Select Status"}</span>
                       <span className="status-caret">⌄</span>
                     </button>
                   </div>
@@ -828,22 +884,31 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                           width: `${statusMenuPosition.width}px`,
                         }}
                       >
-                        {statusOptions.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className="status-option"
-                            onClick={() => handleStatusChange(option)}
-                          >
-                            <span
-                              className={`status-dot status-dot-${option
-                                .toLowerCase()
-                                .replace(/\s+/g, "-")}`}
-                            />
+                        {leadStatuses.length === 0 && (
+                          <div style={{ padding: "10px 14px", color: "#94a3b8", fontSize: "13px" }}>
+                            No statuses available
+                          </div>
+                        )}
+                        {leadStatuses.map((s) => {
+                          const sId = s.id ?? s.Id;
+                          const sName = s.statusName || s.StatusName || s.name || s.Name || "";
+                          return (
+                            <button
+                              key={sId}
+                              type="button"
+                              className="status-option"
+                              onClick={() => handleStatusChange(sId)}
+                            >
+                              <span
+                                className={`status-dot status-dot-${sName
+                                  .toLowerCase()
+                                  .replace(/\s+/g, "-")}`}
+                              />
 
-                            {option}
-                          </button>
-                        ))}
+                              {sName}
+                            </button>
+                          );
+                        })}
                       </div>,
                       document.body
                     )}
@@ -948,7 +1013,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                   <h3>Community</h3>
                 </div>
 
-                <DetailRow label="Community Name" value={communityName || "N/A"} />
+                <DetailRow
+                label="Community Name"
+                value={formatCommunityName(leadDetails?.clientKey)}
+              />
               </div>
 
               <div className="details-card">
