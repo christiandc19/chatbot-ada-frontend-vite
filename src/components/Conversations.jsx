@@ -384,75 +384,117 @@ const Conversations = ({ user, onLogout }) => {
     setSearchTimer(timer);
   };
 
-// Filter, search, paginate, and summarize leads for the table.
-// Search and dropdown filter now work together.
+
+
+  /* ========================================
+   FILTER + SORT LEADS
+
+   NEW:
+   Sort leads by newest activity first.
+
+   This makes older leads jump back to
+   the top whenever they receive new
+   chatbot/webform/survey activity.
+======================================== */
 const filteredConversations = Array.isArray(conversations)
-  ? conversations.filter((conv) => {
-      if (!conv) return false;
+  ? conversations
+      .filter((conv) => {
+        if (!conv) return false;
 
-    // NEW: Community/client filter.
-    // If "all" is selected, show every lead.
-    // Otherwise, only show leads that match the selected clientKey.
-    const leadClientKey = String(conv.clientKey || "").toLowerCase();
+        // Community filter
+        const leadClientKey = String(
+          conv.clientKey || ""
+        ).toLowerCase();
 
-    const matchesSelectedCommunity =
-      selectedCommunity === "all" || leadClientKey === selectedCommunity;
+        const matchesSelectedCommunity =
+          selectedCommunity === "all" ||
+          leadClientKey === selectedCommunity;
 
-if (!matchesSelectedCommunity) return false;
+        if (!matchesSelectedCommunity) return false;
 
-      const query = searchQuery.trim().toLowerCase();
+        const query = searchQuery.trim().toLowerCase();
 
-      const leadName = `${conv.firstName || ""} ${
-        conv.lastName || ""
-      }`.trim();
+        const leadName = `${conv.firstName || ""} ${
+          conv.lastName || ""
+        }`.trim();
 
-      const lead = leadName.toLowerCase();
-      const leadEmail = conv.email ? String(conv.email).toLowerCase() : "";
-      const leadPhone = conv.phone ? String(conv.phone).toLowerCase() : "";
-      const leadSource = getLeadSource(conv).toLowerCase();
+        const lead = leadName.toLowerCase();
 
-      const leadCommunity = conv.community
-        ? String(conv.community).toLowerCase()
-        : "";
+        const leadEmail = conv.email
+          ? String(conv.email).toLowerCase()
+          : "";
 
-      const leadCreatedDate = conv.createdAt
-        ? formatLocalDate(conv.createdAt).toLowerCase()
-        : "";
+        const leadPhone = conv.phone
+          ? String(conv.phone).toLowerCase()
+          : "";
 
-      // Search works across the main fields.
-      const matchesSearch =
-        !query ||
-        lead.includes(query) ||
-        leadEmail.includes(query) ||
-        leadPhone.includes(query) ||
-        leadSource.includes(query) ||
-        leadCommunity.includes(query) ||
-        leadCreatedDate.includes(query);
+        const leadSource = getLeadSource(conv).toLowerCase();
 
-      // Dropdown filter works even when search is empty.
-      let matchesFilter = true;
+        const leadCommunity = conv.community
+          ? String(conv.community).toLowerCase()
+          : "";
 
-      if (leadFilter.startsWith("source:")) {
-        const selectedSource = leadFilter.replace("source:", "");
-        matchesFilter = leadSource === selectedSource;
-      }
+        const leadCreatedDate = conv.createdAt
+          ? formatLocalDate(conv.createdAt).toLowerCase()
+          : "";
 
-      if (leadFilter === "community:has") {
-        matchesFilter = leadCommunity && leadCommunity !== "n/a";
-      }
+        // Search matching
+        const matchesSearch =
+          !query ||
+          lead.includes(query) ||
+          leadEmail.includes(query) ||
+          leadPhone.includes(query) ||
+          leadSource.includes(query) ||
+          leadCommunity.includes(query) ||
+          leadCreatedDate.includes(query);
 
-      if (leadFilter === "community:none") {
-        matchesFilter = !leadCommunity || leadCommunity === "n/a";
-      }
+        // Dropdown filters
+        let matchesFilter = true;
 
-      if (leadFilter === "created:this-week") {
-        matchesFilter = isThisWeek(conv.createdAt);
-      }
+        if (leadFilter.startsWith("source:")) {
+          const selectedSource = leadFilter.replace(
+            "source:",
+            ""
+          );
 
-      return matchesSearch && matchesFilter;
-    })
+          matchesFilter =
+            leadSource === selectedSource;
+        }
+
+        if (leadFilter === "community:has") {
+          matchesFilter =
+            leadCommunity &&
+            leadCommunity !== "n/a";
+        }
+
+        if (leadFilter === "community:none") {
+          matchesFilter =
+            !leadCommunity ||
+            leadCommunity === "n/a";
+        }
+
+        if (leadFilter === "created:this-week") {
+          matchesFilter = isThisWeek(conv.createdAt);
+        }
+
+        return matchesSearch && matchesFilter;
+      })
+
+      // NEW:
+      // Sort newest activity first.
+      .sort((a, b) => {
+        const aDate = new Date(
+          a.updatedAt || a.createdAt || 0
+        );
+
+        const bDate = new Date(
+          b.updatedAt || b.createdAt || 0
+        );
+
+        return bDate - aDate;
+      })
+
   : [];
-
   
     const totalPages = Math.ceil(filteredConversations.length / leadsPerPage);
 
