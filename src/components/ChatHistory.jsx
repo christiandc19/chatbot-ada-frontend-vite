@@ -66,6 +66,11 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
   // New: used to detect clicks outside the Priority dropdown
   const priorityMenuRef = useRef(null);
 
+  // NEW:
+  // Reference to the dashboard conversation container.
+  // Used for auto-scrolling to the newest message.
+  const conversationThreadRef = useRef(null);
+
   const firstName = leadDetails?.firstName || "N/A";
   const lastName = leadDetails?.lastName || "N/A";
 
@@ -432,6 +437,32 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     rawMessage ||
     "No message provided.";
 
+
+    /* ========================================
+      AUTO SCROLL CONVERSATION TO BOTTOM
+
+      Keeps the dashboard conversation panel
+      pinned to the newest message whenever
+      messages update or polling refreshes.
+    ======================================== */
+    useEffect(() => {
+      if (!conversationThreadRef.current) return;
+
+      const timer = setTimeout(() => {
+        const container = conversationThreadRef.current;
+
+        if (!container) return;
+
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      }, 150);
+
+      return () => clearTimeout(timer);
+    }, [messages]);
+
+
   // New: keeps the Lead Overview draft in sync when lead details load.
   // =========================================
   // Sync saved backend lead values into
@@ -674,7 +705,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                         <h3>Conversation</h3>
                       </div>
 
-                      <div className="embedded-conversation-thread">
+                      <div
+                          className="embedded-conversation-thread"
+                          ref={conversationThreadRef}
+                        >
                         {messages.map((message, index) => {
                           const isBot = message.sender === "bot";
 

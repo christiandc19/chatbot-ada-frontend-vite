@@ -239,6 +239,7 @@
 
 /* Embedded Conversation */
 .embedded-conversation-thread {
+  scroll-behavior: smooth;
   height: 310px;
   overflow-y: auto;
   padding: 18px;
