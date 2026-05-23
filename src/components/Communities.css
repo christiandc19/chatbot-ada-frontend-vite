@@ -215,9 +215,10 @@
 
 .community-title-wrap h2 {
   margin: 0;
-  font-size: 38px;
+  font-size: 32px;
   letter-spacing: -0.04em;
   color: #0f172a;
+  font-weight: normal;
 }
 
 .community-status-pill {
