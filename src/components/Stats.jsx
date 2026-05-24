@@ -140,6 +140,13 @@ const Stats = ({ user, onLogout }) => {
       return "Other";
     };
 
+
+    // Converts clientKey values into a safe format for comparison.
+    // Example: " Evergreen-Heights " becomes "evergreen-heights".
+    const normalizeClientKey = (value) => {
+      return String(value || "").trim().toLowerCase();
+    };
+
   // NEW:
   // Converts clientKey values into readable community names.
   // Example:
@@ -322,13 +329,28 @@ const Stats = ({ user, onLogout }) => {
         const analyticsClientKey =
           selectedCommunity === "all" ? "default" : selectedCommunity;
 
-        const ga = await getAnalyticsTraffic(analyticsClientKey);
+        let ga = null;
 
-        // TEMP TEST: Check which community is being sent to GA4.
-        console.log("Selected community:", selectedCommunity);
-        console.log("Analytics client key:", analyticsClientKey);
-        console.log("GA response:", ga);
+        try {
+          ga = await getAnalyticsTraffic(analyticsClientKey);
+        } catch (gaError) {
+          console.warn(
+            "No GA data available for this community:",
+            analyticsClientKey,
+            gaError
+          );
 
+          ga = {
+            totals: {
+              activeUsers: 0,
+              sessions: 0,
+              screenPageViews: 0,
+            },
+            daily: [],
+            trafficChannels: [],
+            topPages: [],
+          };
+        }
 
         setGaData(ga);
 
@@ -342,29 +364,25 @@ const Stats = ({ user, onLogout }) => {
         // "asbury-heights"
         const formattedCommunities = communitiesData
           .map((community) => {
-            if (!community.urlAddress) return null;
-
-            return community.urlAddress
-              .replace(/^https?:\/\//, "")
-              .replace(/^www\./, "")
-              .split(".")[0]
-              .toLowerCase()
-              .replace("asburyheights", "asbury-heights");
+            if (!community.clientKey) return null;
+            return community.clientKey;
           })
           .filter(Boolean);
 
-        // Remove duplicates before saving to state.
         setCommunities([...new Set(formattedCommunities)]);
 
 
         const filteredLeads = leads.filter((lead) => {
-          // Community filter
-          // NEW:
-          // Filter leads using clientKey instead of community name.
-          // clientKey is now the main source of truth for communities.
-          const matchesCommunity =
-            selectedCommunity === "all" ||
-            lead.clientKey === selectedCommunity;
+
+        const leadClientKey =
+          lead.clientKey ||
+          lead.ClientKey ||
+          "";
+
+        const matchesCommunity =
+          selectedCommunity === "all" ||
+          String(leadClientKey).toLowerCase() ===
+            String(selectedCommunity).toLowerCase();
 
           // Lead source filter
           const leadSourceType = getLeadSourceType(lead);

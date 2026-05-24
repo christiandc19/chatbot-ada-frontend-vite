@@ -1,13 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import apiService from '../services/apiService';
 import './Header.css';
 
-const Header = ({ user, onLogout }) => {
+  const Header = ({ user, onLogout }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  // NEW:
+  // Controls the notification dropdown visibility.
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // NEW:
+  // Stores notifications for the logged-in user.
+  const [notifications, setNotifications] = useState([]);
   const dropdownRef = useRef(null);
+  // NEW:
+  // Used to redirect when clicking a notification.
+  const navigate = useNavigate();
 
   // Used to navigate to the My Profile page.
-  const navigate = useNavigate();
+  
+  // TEMP DEBUG:
+  // Used to confirm the logged-in user object shape.
+  console.log("Logged in user:", user);
 
   // Creates the full name displayed in the header.
   const fullName = user
@@ -18,6 +32,27 @@ const Header = ({ user, onLogout }) => {
   const initials = user
     ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase()
     : 'U';
+
+
+  // NEW:
+  // Loads notifications for the logged-in user.
+  useEffect(() => {
+    // Prevent fetch if user is not ready yet.
+    if (!user?.id) return;
+
+    const loadNotifications = async () => {
+      try {
+        const data = await apiService.getUserNotifications(user.id);
+
+        // Save notifications into state.
+        setNotifications(data);
+      } catch (error) {
+        console.error("Failed to load notifications:", error);
+      }
+    };
+
+    loadNotifications();
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -51,9 +86,86 @@ const Header = ({ user, onLogout }) => {
 
   return (
     <div className="page-header">
-      <div className="notification-icon">
-        <span>🔔</span>
-      </div>
+    <div
+      className="notification-icon"
+      onClick={() =>
+        setIsNotificationsOpen((prev) => !prev)
+      }
+    >
+      <span>🔔</span>
+
+      {/* NEW:
+          Shows unread notification count.
+      */}
+      {notifications.filter((n) => !n.isRead).length > 0 && (
+        <div className="notification-badge">
+          {
+            notifications.filter((n) => !n.isRead).length
+          }
+        </div>
+      )}
+
+      {/* NEW:
+          Notification dropdown.
+      */}
+      {isNotificationsOpen && (
+        <div className="notifications-dropdown">
+
+          {notifications.length === 0 ? (
+            <div className="notification-empty">
+              No notifications yet
+            </div>
+          ) : (
+            notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`notification-item ${
+                    notification.isRead ? "read" : "unread"
+                  }`}
+                  onClick={async () => {
+                    try {
+                      await apiService.markNotificationAsRead(notification.id);
+
+                      setNotifications((prev) =>
+                        prev.map((item) =>
+                          item.id === notification.id
+                            ? { ...item, isRead: true }
+                            : item
+                        )
+                      );
+
+                      setIsNotificationsOpen(false);
+
+                    const leadId =
+                      notification.leadId ||
+                      notification.LeadId ||
+                      notification.leadID;
+
+                    console.log("Clicked notification:", notification);
+                    console.log("Notification leadId:", leadId);
+
+                    if (leadId) {
+                      navigate(`/conversations/${leadId}`);
+                    }
+                    
+                    } catch (error) {
+                      console.error("Failed to open notification:", error);
+                    }
+                  }}
+                >
+                <div className="notification-title">
+                  {notification.title}
+                </div>
+
+                <div className="notification-message">
+                  {notification.message}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
 
       <div className="user-info" ref={dropdownRef}>
         <span className="user-name">{fullName}</span>
