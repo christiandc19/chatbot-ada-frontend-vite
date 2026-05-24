@@ -502,6 +502,37 @@ async updateLead(leadId, leadData) {
       return fallback;
     }
   }
+
+
+    // NEW:
+    // Gets dashboard notifications for the logged-in user.
+    async getUserNotifications(userId) {
+      const response = await fetch(`${API_BASE_URL}/Notifications/user/${userId}`, {
+        headers: this._buildAdminHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch notifications");
+      }
+
+      return response.json();
+    }
+
+    // NEW:
+    // Marks one notification as read after the user clicks it.
+    async markNotificationAsRead(notificationId) {
+      const response = await fetch(`${API_BASE_URL}/Notifications/read/${notificationId}`, {
+        method: "PUT",
+        headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to mark notification as read");
+      }
+
+      return response.json();
+    }
+
 }
 
 export default new ApiService();

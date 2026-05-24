@@ -183,20 +183,31 @@ const Conversations = ({ user, onLogout }) => {
         // NEW: Load communities from the database so the dropdown is dynamic.
         const communitiesData = await apiService.getCommunities();
 
-        // NEW: Convert community website URLs into client keys.
-        // Example: https://asburyheights.org → asbury-heights
-        const formattedCommunities = communitiesData
-          .map((community) => {
-            if (!community.urlAddress) return null;
+      // NEW: Load communities directly from database clientKey.
+      // This ensures filtering matches the lead.clientKey exactly.
+      const formattedCommunities = communitiesData
+        .map((community) => {
+          if (!community.clientKey) return null;
 
-            return community.urlAddress
-              .replace(/^https?:\/\//, "")
-              .replace(/^www\./, "")
-              .split(".")[0]
-              .toLowerCase()
-              .replace("asburyheights", "asbury-heights");
-          })
-          .filter(Boolean);
+          return {
+            clientKey: community.clientKey,
+            communityName:
+              community.communityName ||
+              formatCommunityName(community.clientKey),
+          };
+        })
+        .filter(Boolean);
+
+      // Remove duplicates by clientKey.
+      const uniqueCommunities = formattedCommunities.filter(
+        (community, index, self) =>
+          index ===
+          self.findIndex(
+            (c) => c.clientKey === community.clientKey
+          )
+      );
+
+setCommunities(uniqueCommunities);
 
         // NEW: Remove duplicates before saving dropdown options.
         setCommunities([...new Set(formattedCommunities)]);
@@ -544,18 +555,20 @@ const weeklySurveyLeads = conversations.filter(
 
 
   const leadStats = {
-    total: Array.isArray(conversations) ? conversations.length : 0,
-    webform: Array.isArray(conversations)
-      ? conversations.filter((conv) => getLeadSource(conv) === "Webform").length
-      : 0,
-    chatbot: Array.isArray(conversations)
-      ? conversations.filter((conv) => getLeadSource(conv) === "Chatbot").length
-      : 0,
-    survey: Array.isArray(conversations)
-      ? conversations.filter((conv) => getLeadSource(conv) === "Survey Form").length
-      : 0,
-  };
+    total: filteredConversations.length,
 
+    webform: filteredConversations.filter(
+      (conv) => getLeadSource(conv) === "Webform"
+    ).length,
+
+    chatbot: filteredConversations.filter(
+      (conv) => getLeadSource(conv) === "Chatbot"
+    ).length,
+
+    survey: filteredConversations.filter(
+      (conv) => getLeadSource(conv) === "Survey Form"
+    ).length,
+  };
 
   // Updates one field in the Add Lead form.
   // Example: typing in First Name updates newLead.firstName.
@@ -774,11 +787,14 @@ const weeklySurveyLeads = conversations.filter(
           >
             <option value="all">All Communities</option>
 
-            {communities.map((community) => (
-              <option key={community} value={community}>
-                {community}
-              </option>
-            ))}
+          {communities.map((community) => (
+            <option
+              key={community.clientKey}
+              value={community.clientKey}
+            >
+              {community.communityName}
+            </option>
+          ))}
           </select>              
 
 
