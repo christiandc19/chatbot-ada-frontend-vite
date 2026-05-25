@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Header from "./Header";
 import { getAnalyticsTraffic } from "../services/analyticsService";
 import apiService from "../services/apiService";
@@ -54,6 +55,23 @@ const TABS = [
   "Reports",
 ];
 
+
+const getValidTabFromUrl = (tabValue) => {
+  // If there is no tab in the URL,
+  // default back to Overview.
+  if (!tabValue) return "Overview";
+
+  // Check if the URL tab matches one of the real tabs.
+  const matchedTab = TABS.find(
+    (tab) => tab.toLowerCase() === tabValue.toLowerCase()
+  );
+
+  // If tab exists, use it.
+  // Otherwise fallback to Overview.
+  return matchedTab || "Overview";
+};
+
+
 const DEFAULT_REPORT_NAME = "Web Analytics Report";
 const REPORT_HISTORY_STORAGE_KEY = "reportHistory";
 
@@ -66,6 +84,7 @@ const SOURCE_COLORS = {
 };
 
 const Stats = ({ user, onLogout }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leadTrendData, setLeadTrendData] = useState([]);
   const [sourceData, setSourceData] = useState([]);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -78,7 +97,11 @@ const Stats = ({ user, onLogout }) => {
   const [selectedLeadSource, setSelectedLeadSource] = useState("all");  const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [gaData, setGaData] = useState(null);
-  const [activeTabName, setActiveTabName] = useState("Overview");
+
+  const [activeTabName, setActiveTabName] = useState(() =>
+  getValidTabFromUrl(searchParams.get("tab"))
+  );
+
   const [selectedRange, setSelectedRange] = useState("30");
   const [reportName, setReportName] = useState("");
   const [savedReportName, setSavedReportName] = useState("");
@@ -630,7 +653,14 @@ const Stats = ({ user, onLogout }) => {
             <button
               key={item}
               type="button"
-              onClick={() => setActiveTabName(item)}
+              onClick={() => {
+                setActiveTabName(item);
+
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.set("tab", item.toLowerCase());
+
+                setSearchParams(nextParams);
+              }}
               className={activeTabName === item ? "active" : ""}
             >
               {item}
