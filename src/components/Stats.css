@@ -91,8 +91,8 @@
 .stats-title {
   margin: 0;
   color: #0f172a;
-  font-size: clamp(28px, 3vw, 32px);
-  font-weight: 500;
+  font-size: clamp(28px, 3vw, 28px);
+  font-weight: 400;
   letter-spacing: -0.045em;
 }
 
@@ -251,7 +251,7 @@
   border-radius: 12px;
 
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 
   color: #64748b;
 
@@ -399,8 +399,8 @@
 .stats-metric-value {
   margin: 0;
   color: #0f172a;
-  font-size: 28px;
-  font-weight: 650;
+  font-size: 24px;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: -0.04em;
 }
@@ -467,7 +467,7 @@
   margin: 0 0 24px;
   color: #0f172a;
   font-size: 20px;
-  font-weight: 750;
+  font-weight: 400;
   letter-spacing: -0.03em;
 }
 

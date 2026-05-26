@@ -46,6 +46,8 @@ const Communities = ({ user, onLogout }) => {
     email: "",
     phone: "",
     website: "",
+    // NEW: GA4 Property ID for analytics
+    googlePropertyId: "",
     address: "",
     status: "Active",
     webAssistantEnabled: true,
@@ -204,6 +206,7 @@ const Communities = ({ user, onLogout }) => {
       await apiService.createCommunity({
         ...newCommunity,
         urlAddress: newCommunity.website,
+        googlePropertyId: newCommunity.googlePropertyId,
         logoUrl: "",
         companyId: null,
       });
@@ -237,6 +240,8 @@ const Communities = ({ user, onLogout }) => {
       email: selectedCommunity.email || "",
       phone: selectedCommunity.phone || "",
       website: selectedCommunity.website || selectedCommunity.urlAddress || "",
+      // NEW: Existing GA4 Property ID
+      googlePropertyId: selectedCommunity.googlePropertyId || "",
       address: selectedCommunity.address || "",
       status: selectedCommunity.status || "Active",
       webAssistantEnabled: selectedCommunity.webAssistantEnabled || false,
@@ -273,6 +278,9 @@ const Communities = ({ user, onLogout }) => {
 
         // Optional frontend field
         website: editingCommunity.website,
+
+        // NEW: Save updated GA4 Property ID
+        googlePropertyId: editingCommunity.googlePropertyId,
 
         address: editingCommunity.address,
         status: editingCommunity.status || "Active",
@@ -387,7 +395,6 @@ const Communities = ({ user, onLogout }) => {
 
         <aside className="communities-sidebar">
           <div className="communities-sidebar-header">
-            <p className="communities-eyebrow">ClientKey Communities</p>
             <h1>Communities</h1>
 
             <button
@@ -714,6 +721,20 @@ const CommunityFormModal = ({
                 value={community.website}
                 onChange={onChange}
                 placeholder="https://example.com"
+              />
+            </label>
+
+            {/* =====================================================
+                GOOGLE ANALYTICS PROPERTY ID
+            ===================================================== */}
+
+            <label className="community-form-wide">
+              Google Property ID
+              <input
+                name="googlePropertyId"
+                value={community.googlePropertyId || ""}
+                onChange={onChange}
+                placeholder="123456789"
               />
             </label>
 
