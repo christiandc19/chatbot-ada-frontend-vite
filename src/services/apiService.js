@@ -169,6 +169,8 @@ async login(email, password) {
     // URLs / branding
     UrlAddress: communityData.urlAddress,
     Website: communityData.website,
+    // NEW: GA4 Property ID
+    GooglePropertyId: communityData.googlePropertyId,
     LogoUrl: communityData.logoUrl,
     Address: communityData.address,
 
@@ -222,6 +224,8 @@ async login(email, password) {
     // URLs / branding
     UrlAddress: communityData.urlAddress,
     Website: communityData.website,
+    // NEW: Updated GA4 Property ID
+    GooglePropertyId: communityData.googlePropertyId,
     LogoUrl: communityData.logoUrl,
     Address: communityData.address,
 

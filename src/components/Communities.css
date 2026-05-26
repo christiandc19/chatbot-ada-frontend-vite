@@ -32,20 +32,12 @@
   padding: 0 8px 18px;
 }
 
-.communities-eyebrow {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #2563eb;
-}
-
 .communities-sidebar-header h1 {
   margin: 0;
   font-size: 28px;
   letter-spacing: -0.03em;
   color: #0f172a;
+  font-weight: 400;
 }
 
 /* Search field */
@@ -277,6 +269,7 @@
   margin: 0 0 18px;
   color: #0f172a;
   font-size: 17px;
+  font-weight: 500;
 }
 
 /* Community contact rows */
