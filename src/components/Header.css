@@ -190,7 +190,7 @@
 
 .notification-title {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 400;
   color: #0f172a;
 }
 
@@ -199,6 +199,7 @@
   font-size: 13px;
   color: #475569;
   line-height: 1.4;
+  font-style: italic;
 }
 
 .notification-empty {

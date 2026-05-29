@@ -161,16 +161,33 @@ const Conversations = ({ user, onLogout }) => {
 
   // Creates a CSS class for each status badge.
   // Example: "Tour Scheduled" becomes "status-tour-scheduled".
-  const getStatusClass = (status) => {
-    return `lead-status-badge status-${String(status)
-      .toLowerCase()
-      .replace(/\s+/g, "-")}`;
-  };
+      const getStatusClass = (status) => {
+        return `lead-status-badge status-${String(status)
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`;
+      };
+
+      /* =========================================
+        NEW:
+        Detects recent leads for CRM inbox
+      ========================================= */
+      const isNewLead = (createdAt) => {
+        if (!createdAt) return false;
+
+        const createdDate = new Date(createdAt);
+        const now = new Date();
+
+        // Difference in hours
+        const hoursDifference = (now - createdDate) / (1000 * 60 * 60);
+
+        // Mark as NEW if created within 24 hours
+        return hoursDifference <= 2;
+      };
 
 
-  // Load leads and poll for new leads so the dashboard stays fresh.
-  useEffect(() => {
-    trackEvent("Conversations", "Page View", "Conversations Page");
+      // Load leads and poll for new leads so the dashboard stays fresh.
+      useEffect(() => {
+        trackEvent("Conversations", "Page View", "Conversations Page");
 
     const fetchConversations = async (isPolling = false) => {
       try {
@@ -208,9 +225,6 @@ const Conversations = ({ user, onLogout }) => {
       );
 
 setCommunities(uniqueCommunities);
-
-        // NEW: Remove duplicates before saving dropdown options.
-        setCommunities([...new Set(formattedCommunities)]);
 
 
                 // Create a Set of the current lead IDs.
@@ -261,21 +275,15 @@ setCommunities(uniqueCommunities);
         // Marks the first load as complete.
         hasLoadedLeadsOnceRef.current = true;
 
-        setConversations((prevConversations) => {
-          const prevIds = Array.isArray(prevConversations)
-            ? prevConversations.map((c) => c.id).sort().join(",")
-            : "";
+        // Always refresh the list from the backend.
+        // This is important because merged leads keep the same ID,
+        // but their UpdatedAt changes, so they need to move to the top.
+        setConversations(Array.isArray(data) ? data : []);
 
-          const newIds = Array.isArray(data)
-            ? data.map((c) => c.id).sort().join(",")
-            : "";
-
-          if (prevIds !== newIds) {
-            return data;
-          }
-
-          return prevConversations;
-        });
+        // NEW:
+        // When the backend refreshes after new activity,
+        // jump back to page 1 so the newest lead is visible.
+        setCurrentPage(1);
 
         if (!isPolling) {
           trackEvent("Conversations", "Leads Loaded", "Fetch success");
@@ -397,6 +405,19 @@ setCommunities(uniqueCommunities);
 
 
 
+  const today = new Date();
+
+const isThisWeek = (date) => {
+  if (!date) return false;
+
+  const createdDate = new Date(date);
+
+  const weekAgo = new Date();
+  weekAgo.setDate(today.getDate() - 7);
+
+  return createdDate >= weekAgo;
+};
+
   /* ========================================
    FILTER + SORT LEADS
 
@@ -502,7 +523,15 @@ const filteredConversations = Array.isArray(conversations)
           b.updatedAt || b.createdAt || 0
         );
 
-        return bDate - aDate;
+        const dateDiff = bDate - aDate;
+
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+
+      // If activity times are identical,
+      // show newest lead ID first.
+      return (b.id || 0) - (a.id || 0);
       })
 
   : [];
@@ -517,19 +546,6 @@ const filteredConversations = Array.isArray(conversations)
       endIndex
     );
 
-
-  const today = new Date();
-
-const isThisWeek = (date) => {
-  if (!date) return false;
-
-  const createdDate = new Date(date);
-
-  const weekAgo = new Date();
-  weekAgo.setDate(today.getDate() - 7);
-
-  return createdDate >= weekAgo;
-};
 
 const weeklyLeads = conversations.filter((conv) =>
   isThisWeek(conv.createdAt)
@@ -672,24 +688,63 @@ const weeklySurveyLeads = conversations.filter(
       };
 
       return (
-        <tr key={conv.id}>
+        <tr key={conv.id} className="conversation-row">
           <td>
             <div className="lead-cell">
-              <div className="lead-avatar">{initials}</div>
 
-              <span
-                className="lead-name clickable"
-                onClick={handleLeadClick}
-                title="View conversation history"
-              >
-                {leadName}
-              </span>
+              {/* =========================================
+                  Lead Avatar + Unread Indicator
+              ========================================= */}
+              <div className="lead-avatar-wrapper">
+
+                {isNewLead(conv.createdAt) && (
+                  <span className="unread-dot" />
+                )}
+
+                <div className="lead-avatar">
+                  {initials}
+                </div>
+
+              </div>
+
+              <div className="lead-title-stack">
+
+                <span
+                  className="lead-name clickable"
+                  onClick={handleLeadClick}
+                  title="View conversation history"
+                >
+                  {leadName}
+                </span>
+
+                {/* Small CRM metadata */}
+                <span className="lead-row-meta">
+                  {getLeadStatus(conv)} • {getLeadSource(conv)}
+                </span>
+
+              </div>
+
+
             </div>
           </td>
 
           <td className="contact-cell">
+
+            {/* Main contact info */}
             <div>{conv.phone || "N/A"}</div>
-            <div className="contact-email">{conv.email || "N/A"}</div>
+
+            <div className="contact-email">
+              {conv.email || "N/A"}
+            </div>
+
+            {/* NEW: CRM activity preview */}
+            <div className="lead-last-activity">
+              Last activity •{" "}
+              {conv.updatedAt
+                ? `${formatLocalDate(conv.updatedAt)} ${formatLocalTime(conv.updatedAt)}`
+                : `${formatLocalDate(conv.createdAt)} ${formatLocalTime(conv.createdAt)}`}
+            </div>
+
           </td>
 
           {/* 
@@ -711,9 +766,9 @@ const weeklySurveyLeads = conversations.filter(
             </td>
 
             <td className="created-cell">
-            <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
+            <span>{formatLocalDate(conv.updatedAt || conv.createdAt)}</span>
             <span className="created-time">
-              {conv.created?.time || formatLocalTime(conv.createdAt)}
+              {formatLocalTime(conv.updatedAt || conv.createdAt)}
             </span>
           </td>
         </tr>

@@ -163,6 +163,57 @@ const Stats = ({ user, onLogout }) => {
       return "Other";
     };
 
+    // ========================================
+    // Lead Status Resolver
+    // This supports both backend versions:
+    // 1. Old leads that have lead.status directly
+    // 2. New leads that only have leadStatusId
+    // ========================================
+    const getLeadStatusName = (lead, statuses = []) => {
+      const directStatus =
+        lead?.status ||
+        lead?.Status ||
+        lead?.statusName ||
+        lead?.StatusName ||
+        lead?.leadStatusName ||
+        lead?.LeadStatusName ||
+        lead?.leadStatus?.statusName ||
+        lead?.leadStatus?.StatusName ||
+        lead?.leadStatus?.name ||
+        lead?.leadStatus?.Name ||
+        "";
+
+      if (directStatus) {
+        return String(directStatus).trim();
+      }
+
+      const leadStatusId =
+        lead?.leadStatusId ??
+        lead?.LeadStatusId ??
+        lead?.statusId ??
+        lead?.StatusId ??
+        lead?.leadStatus?.id ??
+        lead?.leadStatus?.Id ??
+        null;
+
+      if (leadStatusId == null) {
+        return "";
+      }
+
+      const matchedStatus = statuses.find((status) => {
+        const statusId = status?.id ?? status?.Id;
+        return Number(statusId) === Number(leadStatusId);
+      });
+
+      return String(
+        matchedStatus?.statusName ||
+          matchedStatus?.StatusName ||
+          matchedStatus?.name ||
+          matchedStatus?.Name ||
+          ""
+      ).trim();
+    };
+
 
     // Converts clientKey values into a safe format for comparison.
     // Example: " Evergreen-Heights " becomes "evergreen-heights".
@@ -380,6 +431,19 @@ const Stats = ({ user, onLogout }) => {
         // NEW: Load communities dynamically from the database.
         const communitiesData = await apiService.getCommunities();
 
+        // ========================================
+        // Load lead statuses for KPI counting
+        // This is needed because newer leads may only store leadStatusId.
+        // ========================================
+        let leadStatusesData = [];
+
+        try {
+          leadStatusesData = await apiService.getLeadStatuses();
+        } catch (statusError) {
+          console.warn("Unable to load lead statuses for Stats KPIs:", statusError);
+          leadStatusesData = [];
+        }
+
         // Convert database communities into dropdown-friendly names.
         // Example:
         // "https://asburyheights.org"
@@ -435,16 +499,32 @@ const Stats = ({ user, onLogout }) => {
         setSurveyLeads(surveyCount);
         setChatLeads(chatCount);
 
+        // ========================================
+        // Status-based KPI counts
+        // Uses getLeadStatusName so Stats works with:
+        // - lead.status
+        // - lead.statusName
+        // - lead.leadStatus.statusName
+        // - lead.leadStatusId matched against getLeadStatuses()
+        // ========================================
         setToursScheduled(
-          filteredLeads.filter(
-            (lead) => (lead.status || "").toLowerCase() === "tour scheduled"
-          ).length
+          filteredLeads.filter((lead) => {
+            const statusName = getLeadStatusName(lead, leadStatusesData);
+            return statusName.toLowerCase() === "tour scheduled";
+          }).length
         );
 
         setMoveIns(
-          filteredLeads.filter(
-            (lead) => (lead.status || "").toLowerCase() === "converted"
-          ).length
+          filteredLeads.filter((lead) => {
+            const statusName = getLeadStatusName(lead, leadStatusesData);
+            return (
+              statusName.toLowerCase() === "converted" ||
+              statusName.toLowerCase() === "move in" ||
+              statusName.toLowerCase() === "move-in" ||
+              statusName.toLowerCase() === "move ins" ||
+              statusName.toLowerCase() === "move-ins"
+            );
+          }).length
         );
 
         const grouped = {};
