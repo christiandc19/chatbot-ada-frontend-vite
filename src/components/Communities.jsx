@@ -682,13 +682,12 @@ const CommunityFormModal = ({
             </label>
 
             <label>
-              Client Key
+              Website
               <input
-                name="clientKey"
-                value={community.clientKey}
+                name="website"
+                value={community.website}
                 onChange={onChange}
-                placeholder="evergreen-heights"
-                required
+                placeholder="https://example.com"
               />
             </label>
 
@@ -714,15 +713,6 @@ const CommunityFormModal = ({
               />
             </label>
 
-            <label className="community-form-wide">
-              Website
-              <input
-                name="website"
-                value={community.website}
-                onChange={onChange}
-                placeholder="https://example.com"
-              />
-            </label>
 
             {/* =====================================================
                 GOOGLE ANALYTICS PROPERTY ID
