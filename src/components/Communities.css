@@ -398,8 +398,9 @@
 
 .community-modal-header h2 {
   margin: 0;
-  font-size: 26px;
+  font-size: 22px;
   color: #0f172a;
+  font-weight: 500;
 }
 
 .community-modal-close {
@@ -436,7 +437,7 @@
   gap: 8px;
   color: #334155;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .community-form input {
@@ -575,6 +576,12 @@
 
   box-shadow:
     0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.required-star {
+  color: #dc2626a6;
+  margin-left: 3px;
+  margin-bottom: -12px
 }
 
 
