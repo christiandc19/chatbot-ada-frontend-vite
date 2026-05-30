@@ -92,9 +92,10 @@ const Stats = ({ user, onLogout }) => {
   // Default the Stats dashboard to Evergreen Heights.
   // This automatically filters the page to the Evergreen Heights community
   // when the dashboard first loads.
-  const [selectedCommunity, setSelectedCommunity] = useState("evergreen-heights");
+  const [selectedCommunityId, setSelectedCommunityId] = useState("all");
   // Controls the Lead Source dropdown filter.
-  const [selectedLeadSource, setSelectedLeadSource] = useState("all");  const [communities, setCommunities] = useState([]);
+  const [selectedLeadSource, setSelectedLeadSource] = useState("all");  
+  const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [gaData, setGaData] = useState(null);
 
@@ -269,7 +270,7 @@ const Stats = ({ user, onLogout }) => {
       id: Date.now(),
       reportName: reportDisplayName,
       selectedRange,
-      selectedCommunity,
+      selectedCommunity: selectedCommunityId,
       activeTabName,
       createdAt: new Date().toISOString(),
       fileType: "PDF",
@@ -371,7 +372,10 @@ const Stats = ({ user, onLogout }) => {
       generateDashboardPdf({
         reportName: reportDisplayName,
         selectedRange,
-        selectedCommunity,
+        // =====================================================
+        // Save communityId instead of clientKey.
+        // =====================================================
+        selectedCommunity: selectedCommunityId,        
         activeTabName,
         visitors: gaData?.totals?.activeUsers || 0,
         totalLeads,
@@ -398,10 +402,21 @@ const Stats = ({ user, onLogout }) => {
         setLoading(true);
 
         const leads = await apiService.getLeads();
-        // NEW: Send the selected community/client to the analytics endpoint.
-        // For now, "all" uses the default GA4 property.
-        const analyticsClientKey =
-          selectedCommunity === "all" ? "default" : selectedCommunity;
+        // =====================================================
+        // GA4 still needs the selected community's clientKey
+        // because the backend analytics endpoint currently uses clientKey.
+        // The dashboard dropdown uses communityId,
+        // then we find that community's clientKey only for GA4.
+        // =====================================================
+        const selectedCommunityRecord = communities.find(
+          (community) => String(community.id) === String(selectedCommunityId)
+        );
+
+
+const analyticsClientKey =
+  selectedCommunityId === "all"
+    ? "default"
+    : selectedCommunityRecord?.clientKey || "default";
 
         let ga = null;
 
@@ -444,19 +459,22 @@ const Stats = ({ user, onLogout }) => {
           leadStatusesData = [];
         }
 
-        // Convert database communities into dropdown-friendly names.
-        // Example:
-        // "https://asburyheights.org"
-        // becomes:
-        // "asbury-heights"
+        // =====================================================
+        // COMMUNITY DROPDOWN DATA
+        // Store the full community object.
+        // Display communityName in the dropdown.
+        // Use id as the selected value.
+        // Keep clientKey only for GA4/widget lookup when needed.
+        // =====================================================
         const formattedCommunities = communitiesData
-          .map((community) => {
-            if (!community.clientKey) return null;
-            return community.clientKey;
-          })
-          .filter(Boolean);
+          .filter((community) => community.id)
+          .map((community) => ({
+            id: community.id,
+            communityName: community.communityName || "Unnamed Community",
+            clientKey: community.clientKey || "",
+          }));
 
-        setCommunities([...new Set(formattedCommunities)]);
+        setCommunities(formattedCommunities);
 
 
         const filteredLeads = leads.filter((lead) => {
@@ -466,10 +484,15 @@ const Stats = ({ user, onLogout }) => {
           lead.ClientKey ||
           "";
 
+        // =====================================================
+        // TEMPORARY FILTER
+        // Leads still use clientKey for now.
+        // After backend is updated, we will change this to lead.communityId.
+        // =====================================================
         const matchesCommunity =
-          selectedCommunity === "all" ||
+          selectedCommunityId === "all" ||
           String(leadClientKey).toLowerCase() ===
-            String(selectedCommunity).toLowerCase();
+            String(selectedCommunityRecord?.clientKey || "").toLowerCase();
 
           // Lead source filter
           const leadSourceType = getLeadSourceType(lead);
@@ -622,8 +645,7 @@ const Stats = ({ user, onLogout }) => {
     };
 
     fetchStats();
-      }, [selectedCommunity, selectedRange, selectedLeadSource]);
-
+    }, [selectedCommunityId, selectedRange, selectedLeadSource]);
   return (
     <div className="stats-page">
       <Header user={user} onLogout={onLogout} />
@@ -688,8 +710,8 @@ const Stats = ({ user, onLogout }) => {
           </select>
 
           <select
-            value={selectedCommunity}
-            onChange={(event) => setSelectedCommunity(event.target.value)}
+            value={selectedCommunityId}
+            onChange={(event) => setSelectedCommunityId(event.target.value)}
           >
           {/* 
             NEW:
@@ -699,13 +721,15 @@ const Stats = ({ user, onLogout }) => {
           */}
           <option value="all">All Communities</option>
 
-          <option value="evergreen-heights">Evergreen Heights</option>
+            {/* =====================================================
+                Community dropdown now uses community.id.
+                User sees communityName.
+                Dashboard stores communityId.
+            ===================================================== */}
 
-          {communities
-            .filter((community) => community !== "evergreen-heights")
-            .map((community) => (
-              <option key={community} value={community}>
-                {formatCommunityName(community)}
+            {communities.map((community) => (
+              <option key={community.id} value={community.id}>
+                {community.communityName}
               </option>
             ))}
             </select>
