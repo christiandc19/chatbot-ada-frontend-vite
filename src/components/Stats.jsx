@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Header from "./Header";
 import { getAnalyticsTraffic } from "../services/analyticsService";
 import apiService from "../services/apiService";
@@ -54,6 +55,23 @@ const TABS = [
   "Reports",
 ];
 
+
+const getValidTabFromUrl = (tabValue) => {
+  // If there is no tab in the URL,
+  // default back to Overview.
+  if (!tabValue) return "Overview";
+
+  // Check if the URL tab matches one of the real tabs.
+  const matchedTab = TABS.find(
+    (tab) => tab.toLowerCase() === tabValue.toLowerCase()
+  );
+
+  // If tab exists, use it.
+  // Otherwise fallback to Overview.
+  return matchedTab || "Overview";
+};
+
+
 const DEFAULT_REPORT_NAME = "Web Analytics Report";
 const REPORT_HISTORY_STORAGE_KEY = "reportHistory";
 
@@ -66,6 +84,7 @@ const SOURCE_COLORS = {
 };
 
 const Stats = ({ user, onLogout }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leadTrendData, setLeadTrendData] = useState([]);
   const [sourceData, setSourceData] = useState([]);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -78,7 +97,11 @@ const Stats = ({ user, onLogout }) => {
   const [selectedLeadSource, setSelectedLeadSource] = useState("all");  const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [gaData, setGaData] = useState(null);
-  const [activeTabName, setActiveTabName] = useState("Overview");
+
+  const [activeTabName, setActiveTabName] = useState(() =>
+  getValidTabFromUrl(searchParams.get("tab"))
+  );
+
   const [selectedRange, setSelectedRange] = useState("30");
   const [reportName, setReportName] = useState("");
   const [savedReportName, setSavedReportName] = useState("");
@@ -138,6 +161,64 @@ const Stats = ({ user, onLogout }) => {
       if (source === "manual") return "Manual";
 
       return "Other";
+    };
+
+    // ========================================
+    // Lead Status Resolver
+    // This supports both backend versions:
+    // 1. Old leads that have lead.status directly
+    // 2. New leads that only have leadStatusId
+    // ========================================
+    const getLeadStatusName = (lead, statuses = []) => {
+      const directStatus =
+        lead?.status ||
+        lead?.Status ||
+        lead?.statusName ||
+        lead?.StatusName ||
+        lead?.leadStatusName ||
+        lead?.LeadStatusName ||
+        lead?.leadStatus?.statusName ||
+        lead?.leadStatus?.StatusName ||
+        lead?.leadStatus?.name ||
+        lead?.leadStatus?.Name ||
+        "";
+
+      if (directStatus) {
+        return String(directStatus).trim();
+      }
+
+      const leadStatusId =
+        lead?.leadStatusId ??
+        lead?.LeadStatusId ??
+        lead?.statusId ??
+        lead?.StatusId ??
+        lead?.leadStatus?.id ??
+        lead?.leadStatus?.Id ??
+        null;
+
+      if (leadStatusId == null) {
+        return "";
+      }
+
+      const matchedStatus = statuses.find((status) => {
+        const statusId = status?.id ?? status?.Id;
+        return Number(statusId) === Number(leadStatusId);
+      });
+
+      return String(
+        matchedStatus?.statusName ||
+          matchedStatus?.StatusName ||
+          matchedStatus?.name ||
+          matchedStatus?.Name ||
+          ""
+      ).trim();
+    };
+
+
+    // Converts clientKey values into a safe format for comparison.
+    // Example: " Evergreen-Heights " becomes "evergreen-heights".
+    const normalizeClientKey = (value) => {
+      return String(value || "").trim().toLowerCase();
     };
 
   // NEW:
@@ -322,18 +403,46 @@ const Stats = ({ user, onLogout }) => {
         const analyticsClientKey =
           selectedCommunity === "all" ? "default" : selectedCommunity;
 
-        const ga = await getAnalyticsTraffic(analyticsClientKey);
+        let ga = null;
 
-        // TEMP TEST: Check which community is being sent to GA4.
-        console.log("Selected community:", selectedCommunity);
-        console.log("Analytics client key:", analyticsClientKey);
-        console.log("GA response:", ga);
+        try {
+          ga = await getAnalyticsTraffic(analyticsClientKey);
+        } catch (gaError) {
+          console.warn(
+            "No GA data available for this community:",
+            analyticsClientKey,
+            gaError
+          );
 
+          ga = {
+            totals: {
+              activeUsers: 0,
+              sessions: 0,
+              screenPageViews: 0,
+            },
+            daily: [],
+            trafficChannels: [],
+            topPages: [],
+          };
+        }
 
         setGaData(ga);
 
         // NEW: Load communities dynamically from the database.
         const communitiesData = await apiService.getCommunities();
+
+        // ========================================
+        // Load lead statuses for KPI counting
+        // This is needed because newer leads may only store leadStatusId.
+        // ========================================
+        let leadStatusesData = [];
+
+        try {
+          leadStatusesData = await apiService.getLeadStatuses();
+        } catch (statusError) {
+          console.warn("Unable to load lead statuses for Stats KPIs:", statusError);
+          leadStatusesData = [];
+        }
 
         // Convert database communities into dropdown-friendly names.
         // Example:
@@ -342,29 +451,25 @@ const Stats = ({ user, onLogout }) => {
         // "asbury-heights"
         const formattedCommunities = communitiesData
           .map((community) => {
-            if (!community.urlAddress) return null;
-
-            return community.urlAddress
-              .replace(/^https?:\/\//, "")
-              .replace(/^www\./, "")
-              .split(".")[0]
-              .toLowerCase()
-              .replace("asburyheights", "asbury-heights");
+            if (!community.clientKey) return null;
+            return community.clientKey;
           })
           .filter(Boolean);
 
-        // Remove duplicates before saving to state.
         setCommunities([...new Set(formattedCommunities)]);
 
 
         const filteredLeads = leads.filter((lead) => {
-          // Community filter
-          // NEW:
-          // Filter leads using clientKey instead of community name.
-          // clientKey is now the main source of truth for communities.
-          const matchesCommunity =
-            selectedCommunity === "all" ||
-            lead.clientKey === selectedCommunity;
+
+        const leadClientKey =
+          lead.clientKey ||
+          lead.ClientKey ||
+          "";
+
+        const matchesCommunity =
+          selectedCommunity === "all" ||
+          String(leadClientKey).toLowerCase() ===
+            String(selectedCommunity).toLowerCase();
 
           // Lead source filter
           const leadSourceType = getLeadSourceType(lead);
@@ -394,16 +499,32 @@ const Stats = ({ user, onLogout }) => {
         setSurveyLeads(surveyCount);
         setChatLeads(chatCount);
 
+        // ========================================
+        // Status-based KPI counts
+        // Uses getLeadStatusName so Stats works with:
+        // - lead.status
+        // - lead.statusName
+        // - lead.leadStatus.statusName
+        // - lead.leadStatusId matched against getLeadStatuses()
+        // ========================================
         setToursScheduled(
-          filteredLeads.filter(
-            (lead) => (lead.status || "").toLowerCase() === "tour scheduled"
-          ).length
+          filteredLeads.filter((lead) => {
+            const statusName = getLeadStatusName(lead, leadStatusesData);
+            return statusName.toLowerCase() === "tour scheduled";
+          }).length
         );
 
         setMoveIns(
-          filteredLeads.filter(
-            (lead) => (lead.status || "").toLowerCase() === "converted"
-          ).length
+          filteredLeads.filter((lead) => {
+            const statusName = getLeadStatusName(lead, leadStatusesData);
+            return (
+              statusName.toLowerCase() === "converted" ||
+              statusName.toLowerCase() === "move in" ||
+              statusName.toLowerCase() === "move-in" ||
+              statusName.toLowerCase() === "move ins" ||
+              statusName.toLowerCase() === "move-ins"
+            );
+          }).length
         );
 
         const grouped = {};
@@ -612,7 +733,14 @@ const Stats = ({ user, onLogout }) => {
             <button
               key={item}
               type="button"
-              onClick={() => setActiveTabName(item)}
+              onClick={() => {
+                setActiveTabName(item);
+
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.set("tab", item.toLowerCase());
+
+                setSearchParams(nextParams);
+              }}
               className={activeTabName === item ? "active" : ""}
             >
               {item}

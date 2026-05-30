@@ -30,46 +30,70 @@ const Communities = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-
   // =====================================================
-  // ADD COMMUNITY MODAL STATE
-  // Controls the add community modal and form values.
+  // ADD / EDIT COMMUNITY MODAL STATE
   // =====================================================
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCommunity, setEditingCommunity] = useState(null);
   const [savingCommunity, setSavingCommunity] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const [newCommunity, setNewCommunity] = useState({
+  const emptyCommunityForm = {
     clientKey: "",
     communityName: "",
     email: "",
     phone: "",
     website: "",
+    // NEW: GA4 Property ID for analytics
+    googlePropertyId: "",
     address: "",
     status: "Active",
     webAssistantEnabled: true,
     surveysEnabled: false,
     webformsEnabled: false,
-  });
+  };
 
+  const [newCommunity, setNewCommunity] = useState(emptyCommunityForm);
 
   // =====================================================
   // LOAD COMMUNITIES FROM BACKEND
-  // This calls GET /api/Communities through apiService.
   // =====================================================
 
+  const loadCommunities = async (selectedCommunityId = null) => {
+    const data = await apiService.getCommunities();
+    const safeData = Array.isArray(data) ? data : [];
+
+    setCommunities(safeData);
+
+    if (selectedCommunityId) {
+      const updatedSelected = safeData.find(
+        (community) => Number(community.id) === Number(selectedCommunityId)
+      );
+
+      setSelectedCommunity(updatedSelected || safeData[0] || null);
+      return;
+    }
+
+    setSelectedCommunity((currentSelected) => {
+      if (!currentSelected) return safeData[0] || null;
+
+      const stillExists = safeData.find(
+        (community) => Number(community.id) === Number(currentSelected.id)
+      );
+
+      return stillExists || safeData[0] || null;
+    });
+  };
+
   useEffect(() => {
-    const loadCommunities = async () => {
+    const fetchInitialCommunities = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const data = await apiService.getCommunities();
-        const safeData = Array.isArray(data) ? data : [];
-
-        setCommunities(safeData);
-        setSelectedCommunity(safeData[0] || null);
+        await loadCommunities();
       } catch (err) {
         console.error("Failed to load communities:", err);
         setError("Failed to load communities. Please refresh the page.");
@@ -78,7 +102,7 @@ const Communities = ({ user, onLogout }) => {
       }
     };
 
-    loadCommunities();
+    fetchInitialCommunities();
   }, []);
 
   // =====================================================
@@ -106,7 +130,6 @@ const Communities = ({ user, onLogout }) => {
 
   // =====================================================
   // HELPERS
-  // These keep the JSX cleaner and protect against null values.
   // =====================================================
 
   const getCommunityName = (community) => {
@@ -137,74 +160,158 @@ const Communities = ({ user, onLogout }) => {
       .toUpperCase();
   };
 
+  const resetAddForm = () => {
+    setNewCommunity(emptyCommunityForm);
+    setFormError("");
+  };
 
-// =====================================================
-// ADD COMMUNITY FORM HANDLERS
-// Updates form fields as the admin types.
-// =====================================================
+  // =====================================================
+  // ADD COMMUNITY FORM HANDLER
+  // =====================================================
 
-const handleNewCommunityChange = (e) => {
-  const { name, value, type, checked } = e.target;
+  const handleNewCommunityChange = (e) => {
+    const { name, value, type, checked } = e.target;
 
-  setNewCommunity((prev) => ({
-    ...prev,
-    [name]: type === "checkbox" ? checked : value,
-  }));
-};
+    setNewCommunity((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
 
-// =====================================================
-// CREATE COMMUNITY
-// Sends the new community to the backend.
-// =====================================================
+  // =====================================================
+  // EDIT COMMUNITY FORM HANDLER
+  // =====================================================
 
-const handleCreateCommunity = async (e) => {
-  e.preventDefault();
+  const handleEditCommunityChange = (e) => {
+    const { name, value, type, checked } = e.target;
 
-  setSavingCommunity(true);
-  setFormError("");
+    setEditingCommunity((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
 
-  try {
-    await apiService.createCommunity({
-      ...newCommunity,
-      urlAddress: newCommunity.website,
-      logoUrl: "",
-      companyId: null,
+  // =====================================================
+  // CREATE COMMUNITY
+  // Sends the new community to the backend.
+  // =====================================================
+
+  const handleCreateCommunity = async (e) => {
+    e.preventDefault();
+
+    setSavingCommunity(true);
+    setFormError("");
+
+    try {
+      await apiService.createCommunity({
+        ...newCommunity,
+        urlAddress: newCommunity.website,
+        googlePropertyId: newCommunity.googlePropertyId,
+        logoUrl: "",
+        companyId: null,
+      });
+
+      await loadCommunities();
+
+      setIsAddModalOpen(false);
+      resetAddForm();
+    } catch (err) {
+      console.error("Failed to create community:", err);
+      setFormError(err.message || "Failed to create community.");
+    } finally {
+      setSavingCommunity(false);
+    }
+  };
+
+  // =====================================================
+  // OPEN EDIT MODAL
+  // Loads selected community into editable form.
+  // =====================================================
+
+  const handleOpenEditModal = () => {
+    if (!selectedCommunity) return;
+
+    setFormError("");
+
+    setEditingCommunity({
+      id: selectedCommunity.id,
+      clientKey: selectedCommunity.clientKey || "",
+      communityName: selectedCommunity.communityName || "",
+      email: selectedCommunity.email || "",
+      phone: selectedCommunity.phone || "",
+      website: selectedCommunity.website || selectedCommunity.urlAddress || "",
+      // NEW: Existing GA4 Property ID
+      googlePropertyId: selectedCommunity.googlePropertyId || "",
+      address: selectedCommunity.address || "",
+      status: selectedCommunity.status || "Active",
+      webAssistantEnabled: selectedCommunity.webAssistantEnabled || false,
+      surveysEnabled: selectedCommunity.surveysEnabled || false,
+      webformsEnabled: selectedCommunity.webformsEnabled || false,
     });
 
-    const refreshedCommunities = await apiService.getCommunities();
-    const safeData = Array.isArray(refreshedCommunities)
-      ? refreshedCommunities
-      : [];
+    setIsEditModalOpen(true);
+  };
 
-    setCommunities(safeData);
-    setSelectedCommunity(safeData[0] || null);
+  // =====================================================
+  // UPDATE COMMUNITY
+  // Saves edited community changes.
+  // =====================================================
 
-    setIsAddModalOpen(false);
+  const handleUpdateCommunity = async (e) => {
+    e.preventDefault();
 
-    setNewCommunity({
-      clientKey: "",
-      communityName: "",
-      email: "",
-      phone: "",
-      website: "",
-      address: "",
-      status: "Active",
-      webAssistantEnabled: true,
-      surveysEnabled: false,
-      webformsEnabled: false,
-    });
-  } catch (err) {
-    console.error("Failed to create community:", err);
-    setFormError(err.message || "Failed to create community.");
-  } finally {
-    setSavingCommunity(false);
-  }
-};
+    if (!editingCommunity) return;
 
+    try {
+      setSavingCommunity(true);
+      setFormError("");
+
+      await apiService.updateCommunity({
+        id: editingCommunity.id,
+        clientKey: editingCommunity.clientKey,
+        communityName: editingCommunity.communityName,
+        email: editingCommunity.email,
+        phone: editingCommunity.phone,
+
+        // Backend field
+        urlAddress: editingCommunity.website,
+
+        // Optional frontend field
+        website: editingCommunity.website,
+
+        // NEW: Save updated GA4 Property ID
+        googlePropertyId: editingCommunity.googlePropertyId,
+
+        address: editingCommunity.address,
+        status: editingCommunity.status || "Active",
+
+        logoUrl: selectedCommunity.logoUrl || "",
+        companyId: selectedCommunity.companyId || null,
+
+        webAssistantEnabled:
+          editingCommunity.webAssistantEnabled,
+
+        surveysEnabled:
+          editingCommunity.surveysEnabled,
+
+        webformsEnabled:
+          editingCommunity.webformsEnabled,
+      });
+
+      await loadCommunities(editingCommunity.id);
+
+      setIsEditModalOpen(false);
+      setEditingCommunity(null);
+    } catch (err) {
+      console.error("Failed to update community:", err);
+      setFormError(err.message || "Failed to update community.");
+    } finally {
+      setSavingCommunity(false);
+    }
+  };
 
   // =====================================================
   // LOADING STATE
-  // Prevents the page from crashing while the API is loading.
   // =====================================================
 
   if (loading) {
@@ -212,16 +319,13 @@ const handleCreateCommunity = async (e) => {
       <div className="communities-container">
         <Header user={user} onLogout={onLogout} />
 
-        <main className="community-loading-state">
-          Loading communities...
-        </main>
+        <main className="community-loading-state">Loading communities...</main>
       </div>
     );
   }
 
   // =====================================================
   // ERROR STATE
-  // Shows a friendly message if the API request fails.
   // =====================================================
 
   if (error) {
@@ -238,7 +342,7 @@ const handleCreateCommunity = async (e) => {
 
   // =====================================================
   // EMPTY STATE
-  // Shows when the API works but no communities exist yet.
+  // Allows adding the first community.
   // =====================================================
 
   if (!selectedCommunity) {
@@ -247,8 +351,34 @@ const handleCreateCommunity = async (e) => {
         <Header user={user} onLogout={onLogout} />
 
         <main className="community-loading-state">
-          No communities found.
+          <p>No communities found.</p>
+
+          <button
+            type="button"
+            className="add-community-button"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <Plus size={16} />
+            Add Community
+          </button>
         </main>
+
+        {isAddModalOpen && (
+          <CommunityFormModal
+            title="Add Community"
+            eyebrow="New Community"
+            community={newCommunity}
+            savingCommunity={savingCommunity}
+            formError={formError}
+            submitLabel="Create Community"
+            onChange={handleNewCommunityChange}
+            onSubmit={handleCreateCommunity}
+            onClose={() => {
+              setIsAddModalOpen(false);
+              resetAddForm();
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -265,16 +395,19 @@ const handleCreateCommunity = async (e) => {
 
         <aside className="communities-sidebar">
           <div className="communities-sidebar-header">
-            <p className="communities-eyebrow">ClientKey Communities</p>
             <h1>Communities</h1>
+
             <button
-            type="button"
-            className="add-community-button"
-            onClick={() => setIsAddModalOpen(true)}
-          >
-            <Plus size={16} />
-            Add Community
-          </button>
+              type="button"
+              className="add-community-button"
+              onClick={() => {
+                setFormError("");
+                setIsAddModalOpen(true);
+              }}
+            >
+              <Plus size={16} />
+              Add Community
+            </button>
           </div>
 
           <div className="communities-search">
@@ -296,7 +429,6 @@ const handleCreateCommunity = async (e) => {
               filteredCommunities.map((community) => {
                 const communityName = getCommunityName(community);
                 const clientKey = getClientKey(community);
-
                 const isActive = selectedCommunity?.id === community.id;
 
                 return (
@@ -339,9 +471,19 @@ const handleCreateCommunity = async (e) => {
               </div>
             </div>
 
-            <span className="community-status-pill">
-              {getStatus(selectedCommunity)}
-            </span>
+            <div className="community-header-actions">
+              <span className="community-status-pill">
+                {getStatus(selectedCommunity)}
+              </span>
+
+              <button
+                type="button"
+                className="community-edit-button"
+                onClick={handleOpenEditModal}
+              >
+                Edit Community
+              </button>
+            </div>
           </div>
 
           {/* =====================================================
@@ -444,156 +586,220 @@ const handleCreateCommunity = async (e) => {
         </section>
       </main>
 
-    {/* =====================================================
-        ADD COMMUNITY MODAL
-        Allows admin/developer to create a new clientKey-based community.
-    ===================================================== */}
+      {/* =====================================================
+          ADD COMMUNITY MODAL
+      ===================================================== */}
 
-    {isAddModalOpen && (
-      <div className="community-modal-overlay">
-        <div className="community-modal-card">
-          <div className="community-modal-header">
-            <div>
-              <p className="communities-eyebrow">New Community</p>
-              <h2>Add Community</h2>
-            </div>
+      {isAddModalOpen && (
+        <CommunityFormModal
+          title="Add Community"
+          eyebrow="New Community"
+          community={newCommunity}
+          savingCommunity={savingCommunity}
+          formError={formError}
+          submitLabel="Create Community"
+          onChange={handleNewCommunityChange}
+          onSubmit={handleCreateCommunity}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            resetAddForm();
+          }}
+        />
+      )}
 
-            <button
-              type="button"
-              className="community-modal-close"
-              onClick={() => setIsAddModalOpen(false)}
-            >
-              <X size={20} />
-            </button>
+      {/* =====================================================
+          EDIT COMMUNITY MODAL
+      ===================================================== */}
+
+      {isEditModalOpen && editingCommunity && (
+        <CommunityFormModal
+          title="Edit Community"
+          eyebrow="Community Settings"
+          community={editingCommunity}
+          savingCommunity={savingCommunity}
+          formError={formError}
+          submitLabel="Save Changes"
+          onChange={handleEditCommunityChange}
+          onSubmit={handleUpdateCommunity}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingCommunity(null);
+            setFormError("");
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// =====================================================
+// REUSABLE COMMUNITY FORM MODAL
+// Used by both Add Community and Edit Community.
+// =====================================================
+
+const CommunityFormModal = ({
+  title,
+  eyebrow,
+  community,
+  savingCommunity,
+  formError,
+  submitLabel,
+  onChange,
+  onSubmit,
+  onClose,
+}) => {
+  return (
+    <div className="community-modal-overlay">
+      <div className="community-modal-card">
+        <div className="community-modal-header">
+          <div>
+            <p className="communities-eyebrow">{eyebrow}</p>
+            <h2>{title}</h2>
           </div>
 
-          {formError && (
-            <div className="community-form-error">
-              {formError}
-            </div>
-          )}
-
-          <form onSubmit={handleCreateCommunity} className="community-form">
-            <div className="community-form-grid">
-              <label>
-                Community Name
-                <input
-                  name="communityName"
-                  value={newCommunity.communityName}
-                  onChange={handleNewCommunityChange}
-                  placeholder="Evergreen Heights Senior Living"
-                  required
-                />
-              </label>
-
-              <label>
-                Client Key
-                <input
-                  name="clientKey"
-                  value={newCommunity.clientKey}
-                  onChange={handleNewCommunityChange}
-                  placeholder="evergreen-heights"
-                  required
-                />
-              </label>
-
-              <label>
-                Email
-                <input
-                  type="email"
-                  name="email"
-                  value={newCommunity.email}
-                  onChange={handleNewCommunityChange}
-                  placeholder="info@example.com"
-                  required
-                />
-              </label>
-
-              <label>
-                Phone
-                <input
-                  name="phone"
-                  value={newCommunity.phone}
-                  onChange={handleNewCommunityChange}
-                  placeholder="5551234567"
-                />
-              </label>
-
-              <label className="community-form-wide">
-                Website
-                <input
-                  name="website"
-                  value={newCommunity.website}
-                  onChange={handleNewCommunityChange}
-                  placeholder="https://example.com"
-                />
-              </label>
-
-              <label className="community-form-wide">
-                Address
-                <input
-                  name="address"
-                  value={newCommunity.address}
-                  onChange={handleNewCommunityChange}
-                  placeholder="123 Main St"
-                />
-              </label>
-            </div>
-
-            <div className="community-toggle-group">
-              <label>
-                <input
-                  type="checkbox"
-                  name="webAssistantEnabled"
-                  checked={newCommunity.webAssistantEnabled}
-                  onChange={handleNewCommunityChange}
-                />
-                Web Assistant
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  name="surveysEnabled"
-                  checked={newCommunity.surveysEnabled}
-                  onChange={handleNewCommunityChange}
-                />
-                Surveys
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  name="webformsEnabled"
-                  checked={newCommunity.webformsEnabled}
-                  onChange={handleNewCommunityChange}
-                />
-                Webforms
-              </label>
-            </div>
-
-            <div className="community-modal-actions">
-              <button
-                type="button"
-                className="community-secondary-button"
-                onClick={() => setIsAddModalOpen(false)}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                className="community-primary-button"
-                disabled={savingCommunity}
-              >
-                {savingCommunity ? "Saving..." : "Create Community"}
-              </button>
-            </div>
-          </form>
+          <button
+            type="button"
+            className="community-modal-close"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
         </div>
-      </div>
-    )}
 
+        {formError && <div className="community-form-error">{formError}</div>}
+
+        <form onSubmit={onSubmit} className="community-form">
+          <div className="community-form-grid">
+            <label>
+              Community Name
+              <input
+                name="communityName"
+                value={community.communityName}
+                onChange={onChange}
+                placeholder="Evergreen Heights Senior Living"
+                required
+              />
+            </label>
+
+            <label>
+              Client Key
+              <input
+                name="clientKey"
+                value={community.clientKey}
+                onChange={onChange}
+                placeholder="evergreen-heights"
+                required
+              />
+            </label>
+
+            <label>
+              Email
+              <input
+                type="email"
+                name="email"
+                value={community.email}
+                onChange={onChange}
+                placeholder="info@example.com"
+                required
+              />
+            </label>
+
+            <label>
+              Phone
+              <input
+                name="phone"
+                value={community.phone}
+                onChange={onChange}
+                placeholder="5551234567"
+              />
+            </label>
+
+            <label className="community-form-wide">
+              Website
+              <input
+                name="website"
+                value={community.website}
+                onChange={onChange}
+                placeholder="https://example.com"
+              />
+            </label>
+
+            {/* =====================================================
+                GOOGLE ANALYTICS PROPERTY ID
+            ===================================================== */}
+
+            <label className="community-form-wide">
+              Google Property ID
+              <input
+                name="googlePropertyId"
+                value={community.googlePropertyId || ""}
+                onChange={onChange}
+                placeholder="123456789"
+              />
+            </label>
+
+            <label className="community-form-wide">
+              Address
+              <input
+                name="address"
+                value={community.address}
+                onChange={onChange}
+                placeholder="123 Main St"
+              />
+            </label>
+          </div>
+
+          <div className="community-toggle-group">
+            <label>
+              <input
+                type="checkbox"
+                name="webAssistantEnabled"
+                checked={community.webAssistantEnabled}
+                onChange={onChange}
+              />
+              Web Assistant
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                name="surveysEnabled"
+                checked={community.surveysEnabled}
+                onChange={onChange}
+              />
+              Surveys
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                name="webformsEnabled"
+                checked={community.webformsEnabled}
+                onChange={onChange}
+              />
+              Webforms
+            </label>
+          </div>
+
+          <div className="community-modal-actions">
+            <button
+              type="button"
+              className="community-secondary-button"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="community-primary-button"
+              disabled={savingCommunity}
+            >
+              {savingCommunity ? "Saving..." : submitLabel}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

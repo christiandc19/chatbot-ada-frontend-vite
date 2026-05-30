@@ -5,15 +5,29 @@ import "./ChatHistory.css";
 import Header from "./Header";
 import apiService from "../services/apiService";
 import { formatLocalTime } from "../utils/dateUtils";
+import { useNotification } from "../contexts/NotificationContext";
 
-// New: options used by the custom Priority dropdown
+
+// =====================================================
+// Lead Overview Priority Options
+// Used by the custom Priority dropdown in the CRM sidebar.
+// =====================================================
 const priorityOptions = ["Low", "Medium", "High", "Urgent"];
 
 const ChatHistory = ({ user, onLogout }) => {
   const { leadId } = useParams();
   const navigate = useNavigate();
 
-  // Core lead data
+  // =====================================================
+  // Toast notifications
+  // Used after saving CRM overview changes.
+  // =====================================================
+  const { showNotification } = useNotification();
+
+  // =====================================================
+  // Core Lead Page State
+  // Stores lead details, messages, notes, users, and loading state.
+  // =====================================================
   const [messages, setMessages] = useState([]);
   const [leadDetails, setLeadDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +36,13 @@ const ChatHistory = ({ user, onLogout }) => {
   const [communityName, setCommunityName] = useState("");
   const [newNote, setNewNote] = useState("");
   const [notes, setNotes] = useState([]);
+  // =====================================================
+  // Frontend CRM Activity Logs
+  // These show immediate timeline feedback when status,
+  // assignment, or priority changes before backend activity
+  // persistence is added later.
+  // =====================================================
+  const [activityLogs, setActivityLogs] = useState([]);
   const [activeTab, setActiveTab] = useState("notes");
 
   // New: stores dashboard users for the "Assigned To" dropdown
@@ -65,6 +86,19 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
 
   // New: used to detect clicks outside the Priority dropdown
   const priorityMenuRef = useRef(null);
+
+  // NEW:
+  // Reference to the dashboard conversation container.
+  // Used for auto-scrolling to the newest message.
+  const conversationThreadRef = useRef(null);
+
+  // NEW:
+  // Prevents forcing the user back to the bottom
+  // while reading older messages.
+  const hasInitialAutoScrolledRef = useRef(false);
+
+  // Tracks the previous message count.
+  const previousMessageCountRef = useRef(0);
 
   const firstName = leadDetails?.firstName || "N/A";
   const lastName = leadDetails?.lastName || "N/A";
@@ -252,11 +286,12 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     if (statusButtonRef.current) {
       const rect = statusButtonRef.current.getBoundingClientRect();
 
-      setStatusMenuPosition({
-        top: rect.bottom + 8,
-        left: rect.right - 210,
-        width: 210,
-      });
+    setStatusMenuPosition({
+      // NEW: position correctly even when page is scrolled
+      top: rect.bottom + window.scrollY + 8,
+      left: rect.right + window.scrollX - 210,
+      width: 210,
+    });
     }
 
     setShowStatusMenu((prev) => !prev);
@@ -289,9 +324,28 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
 
 
 
-  // Updates the Status dropdown locally only.
-  // Nothing is saved to the backend until the user clicks Save Changes.
+  // =====================================================
+  // Handle Status Change
+  // Updates the local draft, enables Save Changes,
+  // and adds a temporary CRM activity log.
+  // =====================================================
   const handleStatusChange = (statusId) => {
+    const selectedStatus = leadStatuses.find(
+      (s) => Number(s.id ?? s.Id) === Number(statusId)
+    );
+
+    const statusName =
+      selectedStatus?.statusName ||
+      selectedStatus?.StatusName ||
+      selectedStatus?.name ||
+      selectedStatus?.Name ||
+      "Updated";
+
+    addActivityLog(
+      `Status changed to ${statusName}`,
+      "CRM status updated"
+    );
+
     setLeadOverviewDraft((prev) => ({
       ...prev,
       leadStatusId: statusId,
@@ -299,6 +353,21 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
 
     setHasOverviewChanges(true);
     setShowStatusMenu(false);
+  };
+
+
+  // =====================================================
+  // Adds a new CRM activity item
+  // =====================================================
+  const addActivityLog = (title, description = "") => {
+    const newLog = {
+      id: Date.now(),
+      title,
+      description,
+      createdAt: new Date().toISOString(),
+    };
+
+    setActivityLogs((prev) => [newLog, ...prev]);
   };
 
   // Saves all Lead Overview fields together:
@@ -328,6 +397,8 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
       }));
 
       setHasOverviewChanges(false);
+      showNotification("Lead overview saved successfully.", "success", 3000);
+
     } catch (err) {
       console.error("Failed to save lead overview:", err);
       alert("Failed to save lead overview. Please try again.");
@@ -343,6 +414,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
   const rawMessage =
     latestMessage?.message || latestMessage?.content || latestMessage?.text || "";
 
+console.log("FULL leadDetails:", leadDetails);
+console.log("LATEST message:", latestMessage);
+console.log("RAW message:", rawMessage);
+
   const getValueFromMessage = (label) => {
     const line = rawMessage
       .split("\n")
@@ -354,6 +429,55 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
   const displayValue = (value) => {
     return value && value !== "N/A" ? value : "—";
   };
+
+  // NEW:
+  // Extracts a specific field from a saved webform conversation message.
+  // Example: "Preferred Date: 2026-05-30"
+  const getValueFromSpecificMessage = (messageText, label) => {
+    if (!messageText) return "";
+
+    const line = messageText
+      .split("\n")
+      .find((item) =>
+        item.toLowerCase().startsWith(label.toLowerCase())
+      );
+
+    return line ? line.replace(label, "").trim() : "";
+  };
+
+  // NEW:
+// Webform submission history.
+// This lets duplicate/merged webform leads still show previous submissions.
+const webformSubmissionHistory = messages
+  .filter((message) => {
+    const text =
+      message.message ||
+      message.content ||
+      message.text ||
+      "";
+
+    return text.toLowerCase().includes("webform submission");
+  })
+  .map((message) => {
+    const text =
+      message.message ||
+      message.content ||
+      message.text ||
+      "";
+
+    return {
+      id: message.id,
+      createdAt: message.createdAt,
+      inquiryFor: getValueFromSpecificMessage(text, "I am inquiring for:"),
+      connectionPreference: getValueFromSpecificMessage(
+        text,
+        "How would you like to connect?:"
+      ),
+      preferredDate: getValueFromSpecificMessage(text, "Preferred Date:"),
+      preferredTime: getValueFromSpecificMessage(text, "Preferred Time:"),
+      visitorMessage: getValueFromSpecificMessage(text, "Message:"),
+    };
+  });
 
   const leadEmail = leadDetails?.email || latestMessage?.email || "N/A";
   const leadPhone = leadDetails?.phone || latestMessage?.phone || "N/A";
@@ -404,6 +528,7 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     leadDetails?.details?.inquiryType ||
     latestMessage?.inquiryType ||
     getValueFromMessage("I am inquiring for:") ||
+    getValueFromMessage("Inquiring For:") ||
     "N/A";
 
   const preferredDate =
@@ -423,7 +548,9 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
   const connectionType =
     leadDetails?.connectionType ||
     leadDetails?.preferredContact ||
+    latestMessage?.connectionType ||
     getValueFromMessage("How would you like to connect?:") ||
+    getValueFromMessage("Connection Preference:") ||
     "N/A";
 
   const visitorMessage =
@@ -431,6 +558,51 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
     getValueFromMessage("Message:") ||
     rawMessage ||
     "No message provided.";
+
+
+    /* ========================================
+      SMART CRM AUTO SCROLL
+
+      First load:
+      Scroll to newest message.
+
+      After that:
+      Only scroll when a NEW message arrives.
+      Do NOT fight the user while they are
+      reviewing older conversation history.
+    ======================================== */
+    useEffect(() => {
+      const container = conversationThreadRef.current;
+
+      if (!container) return;
+
+      const currentMessageCount = messages.length;
+
+      // First load
+      if (!hasInitialAutoScrolledRef.current) {
+        hasInitialAutoScrolledRef.current = true;
+        previousMessageCountRef.current = currentMessageCount;
+
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+        }, 150);
+
+        return;
+      }
+
+      // New message arrived
+      if (currentMessageCount > previousMessageCountRef.current) {
+        previousMessageCountRef.current = currentMessageCount;
+
+        setTimeout(() => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+          });
+        }, 150);
+      }
+    }, [messages]);    
+
 
   // New: keeps the Lead Overview draft in sync when lead details load.
   // =========================================
@@ -556,6 +728,96 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
       .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
+
+    // NEW: builds smart CRM tags from the lead data
+    const dynamicLeadTags = [];
+
+    dynamicLeadTags.push(leadSourceLabel);
+
+    if (connectionType !== "N/A") {
+      if (connectionType.toLowerCase().includes("visit")) {
+        dynamicLeadTags.push("Tour Requested");
+      } else {
+        dynamicLeadTags.push(connectionType);
+      }
+    }
+
+    if (inquiryType !== "N/A") {
+      dynamicLeadTags.push(`For ${inquiryType}`);
+    }
+
+    if (
+      leadOverviewDraft.priority === "High" ||
+      leadOverviewDraft.priority === "Urgent"
+    ) {
+      dynamicLeadTags.push(`${leadOverviewDraft.priority} Priority`);
+    }
+
+    const getLeadTagClass = (tag) => {
+      const normalized = tag.toLowerCase();
+
+      if (normalized.includes("webform")) return "lead-tag lead-tag-webform";
+      if (normalized.includes("survey")) return "lead-tag lead-tag-survey";
+      if (normalized.includes("chatbot")) return "lead-tag lead-tag-chatbot";
+      if (normalized.includes("tour") || normalized.includes("visit")) return "lead-tag lead-tag-tour";
+      if (normalized.includes("priority")) return "lead-tag lead-tag-hot";
+
+      return "lead-tag lead-tag-neutral";
+    };
+
+
+// ========================================
+// Dynamic Lead Score Calculator
+// Uses leadDetails because this page stores
+// the current lead in leadDetails state.
+// ========================================
+
+const calculateLeadScore = () => {
+  let score = 0;
+
+  // Contact info
+  if (leadEmail && leadEmail !== "N/A") score += 15;
+  if (leadPhone && leadPhone !== "N/A") score += 15;
+
+  // Lead source
+  if (isWebformLead) score += 15;
+  if (isChatbotLead) score += 10;
+  if (isSurveyLead) score += 20;
+
+  // Status
+  switch (status) {
+    case "Qualified":
+      score += 20;
+      break;
+    case "Tour Scheduled":
+      score += 25;
+      break;
+    case "Converted":
+      score += 30;
+      break;
+    case "Contacted":
+      score += 10;
+      break;
+    default:
+      break;
+  }
+
+  // Tour / visit intent
+  if (
+    connectionType !== "N/A" &&
+    connectionType.toLowerCase().includes("visit")
+  ) {
+    score += 20;
+  }
+
+  // Conversation activity
+  if (messages?.length >= 5) score += 10;
+
+  return Math.min(score, 100);
+};
+
+const leadScore = calculateLeadScore();
+    
   return (
     <div className="chat-history-container">
       <Header user={user} onLogout={onLogout} />
@@ -576,14 +838,10 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
             <div className="lead-meta-row">
               <span>{leadSourceLabel}</span>
               <span>•</span>
-              <span>{communityName || "No community assigned"}</span>
+              <span>{communityName} {formatCommunityName(leadDetails?.clientKey)} </span>
             </div>
           </div>
 
-          <div className="lead-actions">
-            <button className="lead-action-btn">Assign</button>
-            <button className="lead-action-btn">Actions</button>
-          </div>
         </div>
 
         {loading ? (
@@ -618,86 +876,325 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                 </div>
 
                 <div className="submission-layout">
-                  <div className="submission-info-panel">
-                    <div className="submission-panel-header">
-                      <h3>Lead Information</h3>
-                    </div>
-
-                    <InfoRow label="First Name" value={firstName} />
-                    <InfoRow label="Last Name" value={lastName} />
-                    <InfoRow label="Email" value={leadEmail} />
-                    <InfoRow label="Phone" value={leadPhone} />
-
-                    {!isSurveyLead && (
-                      <>
-                        <InfoRow label="Inquiring For" value={inquiryType} />
-
-                        <InfoRow
-                          label="Connection Preference"
-                          value={connectionType}
-                        />
-
-                        <InfoRow
-                          label="Preferred Date"
-                          value={preferredDate}
-                        />
-
-                        <InfoRow
-                          label="Preferred Time"
-                          value={preferredTime}
-                        />
-                      </>
-                    )}
-                  </div>
-
                   {isChatbotLead ? (
                     <div className="submission-message-panel">
                       <div className="submission-panel-header">
                         <h3>Conversation</h3>
                       </div>
 
-                      <div className="embedded-conversation-thread">
-                        {messages.map((message, index) => {
-                          const isBot = message.sender === "bot";
+                      <div
+                          className="embedded-conversation-thread"
+                          ref={conversationThreadRef}
+                        >
+                            {messages.map((message, index) => {
+                              const isBot = message.sender === "bot";
 
-                          return (
-                            <div
+                              const messageText =
+                                message.message ||
+                                message.content ||
+                                message.text ||
+                                "No message";
+
+                              // NEW:
+                              // Simple chatbot click/navigation messages should display as
+                              // activity lines instead of large chat bubbles.
+                              const isSimpleActivityMessage =
+                                messageText.startsWith("Community action:") ||
+                                messageText === "Back to Main Menu" ||
+                                messageText === "Living Options" ||
+                                messageText === "Community Life" ||
+                                messageText === "View Floor Plans" ||
+                                messageText === "Contact Us" ||
+                                messageText === "Job Inquiry";
+
+                              if (isSimpleActivityMessage) {
+                                const cleanText = messageText
+                                  .replace("Community action:", "")
+                                  .trim();
+
+                                return (
+                                  <div key={message.id || index} className="thread-activity-line">
+                                    <span>
+                                      {leadName} clicked a link: {cleanText}
+                                    </span>
+
+                                    <em>
+                                      {message.createdAt
+                                        ? new Date(message.createdAt).toLocaleDateString() +
+                                          " • " +
+                                          new Date(message.createdAt).toLocaleTimeString([], {
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                          })
+                                        : formatLocalTime(message.timestamp)}
+                                    </em>
+                                  </div>
+                                );
+                              }
+
+                              return (                            
+                              
+                              <div
                               key={message.id || index}
                               className={`thread-message ${
                                 isBot ? "thread-message-bot" : "thread-message-user"
                               }`}
                             >
-                              <div className="thread-bubble">
+                              <div
+                                className={`thread-bubble ${
+                                  isBot ? "assistant" : "user"
+                                }`}
+>
                                 <div className="thread-meta">
                                   <strong>{isBot ? "Assistant" : leadName}</strong>
-                                  <span>
-                                    {formatLocalTime(
-                                      message.timestamp || message.createdAt
-                                    )}
-                                  </span>
+                                    <span>
+                                      {message.createdAt
+                                        ? new Date(message.createdAt).toLocaleDateString() +
+                                          " • " +
+                                          new Date(message.createdAt).toLocaleTimeString([], {
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                          })
+                                        : formatLocalTime(message.timestamp)}
+                                    </span>
                                 </div>
 
-                                <p>
-                                  {message.message ||
+
+                                {(() => {
+                                  const messageText =
+                                    message.message ||
                                     message.content ||
                                     message.text ||
-                                    "No message"}
-                                </p>
+                                    "No message";
+
+                                // NEW:
+                                // Simple chatbot click/navigation messages should display as
+                                // activity lines instead of large chat bubbles.
+                                const isSimpleActivityMessage =
+                                  messageText.startsWith("Community action:") ||
+                                  messageText === "Back to Main Menu" ||
+                                  messageText === "Living Options" ||
+                                  messageText === "Community Life" ||
+                                  messageText === "View Floor Plans" ||
+                                  messageText === "Contact Us" ||
+                                  messageText === "Job Inquiry";
+
+                                  const scheduleMatch = messageText.match(
+                                    /schedule visit:\s*(\d{4}-\d{2}-\d{2})\s+(.+)/i
+                                  );
+
+                                  if (scheduleMatch) {
+                                    return (
+                                      <div className="chatbot-schedule-card">
+                                      <div className="lead-info-grid">
+                                        {inquiryType !== "N/A" && (
+                                          <div className="lead-info-item">
+                                            <span>Inquiring For</span>
+                                            <strong>{displayValue(inquiryType)}</strong>
+                                          </div>
+                                        )}
+
+                                        {connectionType !== "N/A" && (
+                                          <div className="lead-info-item">
+                                            <span>Connection Preference</span>
+                                            <strong>{displayValue(connectionType)}</strong>
+                                          </div>
+                                        )}
+
+                                        {preferredDate !== "N/A" && (
+                                          <div className="lead-info-item">
+                                            <span>Preferred Date</span>
+                                            <strong>{displayValue(preferredDate)}</strong>
+                                          </div>
+                                        )}
+
+                                        {preferredTime !== "N/A" && (
+                                          <div className="lead-info-item">
+                                            <span>Preferred Time</span>
+                                            <strong>{displayValue(preferredTime)}</strong>
+                                          </div>
+                                        )}
+                                      </div>
+
+
+                                    {inquiryType === "N/A" &&
+                                      connectionType === "N/A" &&
+                                      preferredDate === "N/A" &&
+                                      preferredTime === "N/A" && (
+                                        <div className="lead-info-empty-state">
+                                          No additional form details were submitted.
+                                        </div>
+                                      )}
+
+                                      </div>
+                                    );
+                                  }
+
+                                  return <p>{messageText}</p>;
+                                })()}
+
+
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     </div>
+                  ) : isSurveyLead ? (
+                    <div className="submission-split-layout">
+
+                      {/* ========================================
+                          SURVEY FORM LEAD INFORMATION
+                          Survey leads should show contact details,
+                          not webform appointment fields.
+                      ======================================== */}
+                      <div className="submission-message-panel">
+                        <div className="submission-panel-header">
+                          <h3>Lead Information</h3>
+                        </div>
+
+                        <div className="info-list">
+                          <InfoRow label="First Name" value={leadDetails?.firstName} />
+                          <InfoRow label="Last Name" value={leadDetails?.lastName} />
+                          <InfoRow label="Email" value={leadDetails?.email} />
+                          <InfoRow label="Phone" value={leadDetails?.phone} />
+                        </div>
+                      </div>
+
+                      {/* ========================================
+                          SURVEY RESULT MESSAGE
+                          Prefer the submitted survey completion
+                          message, then fall back to SurveyResult.
+                      ======================================== */}
+                      <div className="submission-message-panel">
+                        <div className="submission-panel-header">
+                          <h3>Result Message</h3>
+                        </div>
+
+                        <div className="submission-message-content">
+                          <p>
+                            {displayValue(
+                              visitorMessage && visitorMessage !== "No message provided."
+                                ? visitorMessage
+                                : surveyResult
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
                   ) : (
                     <div className="submission-message-panel">
+
+                      {/* ========================================
+                          WEBFORM LEAD DETAILS
+                          Shows structured appointment/contact
+                          fields from the public webform.
+                      ======================================== */}
                       <div className="submission-panel-header">
+                        <h3>Lead Information</h3>
+                      </div>
+
+                      <div className="lead-info-grid">
+
+                        <div className="lead-info-item">
+                          <span>Inquiring For</span>
+                          <strong>{displayValue(inquiryType)}</strong>
+                        </div>
+
+                        <div className="lead-info-item">
+                          <span>Connection Preference</span>
+                          <strong>{displayValue(connectionType)}</strong>
+                        </div>
+
+                        <div className="lead-info-item">
+                          <span>Preferred Date</span>
+                          <strong>{displayValue(preferredDate)}</strong>
+                        </div>
+
+                        <div className="lead-info-item">
+                          <span>Preferred Time</span>
+                          <strong>{displayValue(preferredTime)}</strong>
+                        </div>
+
+                      </div>
+
+                      {/* ========================================
+                          VISITOR MESSAGE
+                      ======================================== */}
+                      <div className="submission-panel-header visitor-message-header">
                         <h3>Visitor Message</h3>
                       </div>
 
                       <div className="submission-message-content">
                         <p>{displayValue(visitorMessage)}</p>
                       </div>
+
+                      {/* NEW:
+                      Shows previous webform submissions for merged duplicate leads.
+                      This prevents older schedule visit requests from being hidden.
+                  */}
+
+                  {/* NEW:
+                      Compact timeline view for merged webform submissions.
+                  */}
+                  {webformSubmissionHistory.length > 1 && (
+                    <>
+                      <div className="submission-panel-header visitor-message-header">
+                        <h3>Submission History</h3>
+                      </div>
+
+                      <div className="webform-history-timeline">
+                        {webformSubmissionHistory
+                          .slice()
+                          .reverse()
+                          .map((item, index) => {
+                            const isLatest = index === 0;
+
+                            return (
+                              <div key={item.id} className="webform-history-event">
+                                <div className="webform-history-dot" />
+
+                                <div className="webform-history-body">
+                                  <div className="webform-history-topline">
+                                    <span className="webform-history-label">
+                                      {isLatest ? "Latest Request" : "Previous Request"}
+                                    </span>
+
+                                    <span className="webform-history-submitted">
+                                      {item.createdAt
+                                        ? new Date(item.createdAt).toLocaleDateString() +
+                                          " • " +
+                                          new Date(item.createdAt).toLocaleTimeString([], {
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                          })
+                                        : "Date unavailable"}
+                                    </span>
+                                  </div>
+
+                                  <h4>
+                                    Tour requested for {displayValue(item.preferredDate)} at{" "}
+                                    {displayValue(item.preferredTime)}
+                                  </h4>
+
+                                  <p>
+                                    <strong>{displayValue(item.inquiryFor)}</strong> selected{" "}
+                                    <strong>{displayValue(item.connectionPreference)}</strong>.
+                                  </p>
+
+                                  {item.visitorMessage && (
+                                    <p className="webform-history-note">
+                                      “{item.visitorMessage}”
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </>
+                  )}
                     </div>
                   )}
                 </div>
@@ -804,18 +1301,127 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                       </div>
                     )
                   ) : (
-                    <div className="activity-tab-content">
-                      <div className="activity-tab-item">
+
+
+                  <div className="activity-tab-content">
+
+                    {connectionType !== "N/A" && (
+                      <div className="activity-timeline-item">
+                        <div className="activity-timeline-dot note-dot" />
+
+                        <div className="activity-timeline-body">
+                          <strong>
+                            {connectionType.toLowerCase().includes("visit")
+                              ? "Tour request submitted"
+                              : "Connection preference submitted"}
+                          </strong>
+
+                          <span>
+                            {preferredDate !== "N/A" ? preferredDate : "Date not provided"}
+                            {preferredTime !== "N/A" ? ` • ${preferredTime}` : ""}
+                          </span>
+
+                          <p>
+                            Inquiring for: {displayValue(inquiryType)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* =========================================
+                        DYNAMIC CRM ACTIVITY LOGS
+                    ========================================= */}
+                    {activityLogs.map((log) => (
+                      <div key={log.id} className="activity-timeline-item">
+
+                        <div className="activity-timeline-dot crm-dot" />
+
+                        <div className="activity-timeline-body">
+
+                          <strong>{log.title}</strong>
+
+                          <span>
+                            {new Date(log.createdAt).toLocaleDateString()} •{" "}
+                            {new Date(log.createdAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+
+                          {log.description && (
+                            <p>{log.description}</p>
+                          )}
+
+                        </div>
+                      </div>
+                    ))}
+
+
+
+
+                    {/* NEW: Current CRM status activity */}
+                    {status && (
+                      <div className="activity-timeline-item">
+                        <div className="activity-timeline-dot crm-dot" />
+
+                        <div className="activity-timeline-body">
+                          <strong>Status is currently {status}</strong>
+
+                          <span>CRM status</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* NEW: Assignment activity */}
+                    {leadOverviewDraft.assignedUserId && (
+                      <div className="activity-timeline-item">
+                        <div className="activity-timeline-dot assignment-dot" />
+
+                        <div className="activity-timeline-body">
+                          <strong>
+                            Assigned to{" "}
+                            {users.find((u) => String(u.id) === String(leadOverviewDraft.assignedUserId))
+                              ? `${users.find((u) => String(u.id) === String(leadOverviewDraft.assignedUserId)).firstName || ""} ${users.find((u) => String(u.id) === String(leadOverviewDraft.assignedUserId)).lastName || ""}`.trim()
+                              : "team member"}
+                          </strong>
+
+                          <span>Lead owner</span>
+                        </div>
+                      </div>
+                    )}
+
+
+
+
+                    {/* NEW: Lead created / submitted activity */}
+                    <div className="activity-timeline-item">
+                      
+                      <div className="activity-timeline-dot" />
+
+                      <div className="activity-timeline-body">
                         <strong>{leadSourceLabel} submitted</strong>
+
                         <span>
-                          {displayValue(preferredDate)} •{" "}
-                          {displayValue(preferredTime)}
+                          {leadDetails?.createdAt
+                            ? new Date(leadDetails.createdAt).toLocaleDateString() +
+                              " • " +
+                              new Date(leadDetails.createdAt).toLocaleTimeString([], {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })
+                            : "Date unavailable"}
                         </span>
                       </div>
+                    </div>
 
-                      {notes.map((note) => (
-                        <div key={note.id} className="activity-tab-item">
-                          <strong>Note added</strong>
+                    {/* NEW: Notes become activity events */}
+                    {notes.map((note) => (
+                      <div key={note.id} className="activity-timeline-item">
+                        <div className="activity-timeline-dot note-dot" />
+
+                        <div className="activity-timeline-body">
+                          <strong>Internal note added</strong>
+
                           <span>
                             {new Date(note.createdAt).toLocaleDateString()} •{" "}
                             {new Date(note.createdAt).toLocaleTimeString([], {
@@ -823,9 +1429,14 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                               minute: "2-digit",
                             })}
                           </span>
+
+                          <p>{note.message}</p>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
+
+                  </div>
+
                   )}
                 </div>
               </section>
@@ -853,7 +1464,73 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
               </section>
             </main>
 
+
             <aside className="lead-details-panel">
+
+              {/* =========================================
+                  NEW: Lead Snapshot Card
+                  Gives the CRM sidebar a more operational feel
+              ========================================= */}
+              <div className="details-card lead-snapshot-card">
+
+                <div className="details-card-header">
+                  <h3>Lead Snapshot</h3>
+                </div>
+
+                <div className="lead-snapshot-content">
+
+                  {/* Lead initials avatar */}
+                  <div className="lead-snapshot-avatar">
+                    {firstName?.charAt(0)}
+                    {lastName?.charAt(0)}
+                  </div>
+
+                  {/* Lead basic info */}
+                  <div className="lead-snapshot-name">
+                    <h2>{leadName}</h2>
+
+                    <span className="lead-source-pill">
+                      {leadSourceLabel}
+                    </span>
+                  </div>
+
+                  {/* Quick CRM details */}
+                  <div className="lead-snapshot-grid">
+
+                    <div className="snapshot-item">
+                      <span>Email</span>
+                      <strong>{leadEmail}</strong>
+                    </div>
+
+                    <div className="snapshot-item">
+                      <span>Phone</span>
+                      <strong>{leadPhone}</strong>
+                    </div>
+
+                    <div className="snapshot-item">
+                      <span>Community</span>
+                      <strong>
+                        {formatCommunityName(leadDetails?.clientKey)}
+                      </strong>
+                    </div>
+
+                    <div className="snapshot-item">
+                      <span>Created</span>
+
+                      <strong>
+                        {leadDetails?.createdAt
+                          ? new Date(leadDetails.createdAt).toLocaleDateString()
+                          : "—"}
+                      </strong>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+
+
+
               <div className="details-card">
                 <div className="details-card-header">
                   <h3>Lead Overview</h3>
@@ -922,11 +1599,29 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                   className="assigned-user-select"
                   value={leadOverviewDraft.assignedUserId}
                   onChange={(e) => {
+                    const selectedUserId = e.target.value;
+
+                    const selectedUser = users.find(
+                      (u) => String(u.id) === String(selectedUserId)
+                    );
+
+                    const selectedUserName = selectedUser
+                      ? `${selectedUser.firstName || ""} ${selectedUser.lastName || ""}`.trim() || selectedUser.email
+                      : "Unassigned";
+
+                    // NEW: add a temporary CRM activity log.
+                    addActivityLog(
+                      selectedUserId
+                        ? `Assigned to ${selectedUserName}`
+                        : "Lead unassigned",
+                      "Lead owner updated"
+                    );
+
                     // Update local draft only.
                     // The change is saved after clicking Save Changes.
                     setLeadOverviewDraft((prev) => ({
                       ...prev,
-                      assignedUserId: e.target.value,
+                      assignedUserId: selectedUserId,
                     }));
 
                     setHasOverviewChanges(true);
@@ -975,6 +1670,11 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                           type="button"
                           className="priority-option"
                           onClick={() => {
+                            // NEW: add a temporary CRM activity log.
+                            addActivityLog(
+                              `Priority changed to ${option}`,
+                              "Lead priority updated"
+                            );
 
                             // Update local draft only.
                             // The change is saved after clicking Save Changes.
@@ -995,8 +1695,47 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                 </div>
               </div>
 
+              {/* =========================================
+                  NEW: CRM Tags
+                  Gives the lead operational labels
+              ========================================= */}
+              <div className="lead-tags-section">
+                {dynamicLeadTags.map((tag) => (
+                  <span key={tag} className={getLeadTagClass(tag)}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+
+
+              {/* =========================================
+                  NEW: Lead Score
+                  Simple frontend-only CRM score
+              ========================================= */}
+              <div className="lead-score-card">
+                <div className="lead-score-header">
+                  <span>Lead Score</span>
+                  <strong>{leadScore} / 100</strong>
+                </div>
+
+                <div className="lead-score-bar">
+                  <div
+                    className="lead-score-fill"
+                    style={{ width: `${leadScore}%` }}
+                  />
+                </div>
+              </div>
+
+
+
                 {/* Save button for Lead Overview draft changes */}
                 <div className="lead-overview-save-row">
+                  {hasOverviewChanges && (
+                    <p className="unsaved-changes-text">
+                      You have unsaved changes
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="save-overview-btn"
@@ -1006,25 +1745,6 @@ const [isSavingOverview, setIsSavingOverview] = useState(false);
                     {isSavingOverview ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
-              </div>
-
-              <div className="details-card">
-                <div className="details-card-header">
-                  <h3>Community</h3>
-                </div>
-
-                <DetailRow
-                label="Community Name"
-                value={formatCommunityName(leadDetails?.clientKey)}
-              />
-              </div>
-
-              <div className="details-card">
-                <div className="details-card-header">
-                  <h3>Technical Details</h3>
-                </div>
-
-                <DetailRow label="Lead Source" value={leadSourceLabel} />
               </div>
             </aside>
           </div>

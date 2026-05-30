@@ -76,7 +76,10 @@ function App() {
 <Router>
   <AnalyticsTracker />
 
-  {!user ? (
+  {isLoading ? (
+    <div>Loading...</div>
+  ) : !user ? (
+    
     <Routes>
       <Route
         path="/login"

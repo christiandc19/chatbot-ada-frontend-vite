@@ -161,16 +161,33 @@ const Conversations = ({ user, onLogout }) => {
 
   // Creates a CSS class for each status badge.
   // Example: "Tour Scheduled" becomes "status-tour-scheduled".
-  const getStatusClass = (status) => {
-    return `lead-status-badge status-${String(status)
-      .toLowerCase()
-      .replace(/\s+/g, "-")}`;
-  };
+      const getStatusClass = (status) => {
+        return `lead-status-badge status-${String(status)
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`;
+      };
+
+      /* =========================================
+        NEW:
+        Detects recent leads for CRM inbox
+      ========================================= */
+      const isNewLead = (createdAt) => {
+        if (!createdAt) return false;
+
+        const createdDate = new Date(createdAt);
+        const now = new Date();
+
+        // Difference in hours
+        const hoursDifference = (now - createdDate) / (1000 * 60 * 60);
+
+        // Mark as NEW if created within 24 hours
+        return hoursDifference <= 2;
+      };
 
 
-  // Load leads and poll for new leads so the dashboard stays fresh.
-  useEffect(() => {
-    trackEvent("Conversations", "Page View", "Conversations Page");
+      // Load leads and poll for new leads so the dashboard stays fresh.
+      useEffect(() => {
+        trackEvent("Conversations", "Page View", "Conversations Page");
 
     const fetchConversations = async (isPolling = false) => {
       try {
@@ -183,23 +200,31 @@ const Conversations = ({ user, onLogout }) => {
         // NEW: Load communities from the database so the dropdown is dynamic.
         const communitiesData = await apiService.getCommunities();
 
-        // NEW: Convert community website URLs into client keys.
-        // Example: https://asburyheights.org → asbury-heights
-        const formattedCommunities = communitiesData
-          .map((community) => {
-            if (!community.urlAddress) return null;
+      // NEW: Load communities directly from database clientKey.
+      // This ensures filtering matches the lead.clientKey exactly.
+      const formattedCommunities = communitiesData
+        .map((community) => {
+          if (!community.clientKey) return null;
 
-            return community.urlAddress
-              .replace(/^https?:\/\//, "")
-              .replace(/^www\./, "")
-              .split(".")[0]
-              .toLowerCase()
-              .replace("asburyheights", "asbury-heights");
-          })
-          .filter(Boolean);
+          return {
+            clientKey: community.clientKey,
+            communityName:
+              community.communityName ||
+              formatCommunityName(community.clientKey),
+          };
+        })
+        .filter(Boolean);
 
-        // NEW: Remove duplicates before saving dropdown options.
-        setCommunities([...new Set(formattedCommunities)]);
+      // Remove duplicates by clientKey.
+      const uniqueCommunities = formattedCommunities.filter(
+        (community, index, self) =>
+          index ===
+          self.findIndex(
+            (c) => c.clientKey === community.clientKey
+          )
+      );
+
+setCommunities(uniqueCommunities);
 
 
                 // Create a Set of the current lead IDs.
@@ -250,21 +275,15 @@ const Conversations = ({ user, onLogout }) => {
         // Marks the first load as complete.
         hasLoadedLeadsOnceRef.current = true;
 
-        setConversations((prevConversations) => {
-          const prevIds = Array.isArray(prevConversations)
-            ? prevConversations.map((c) => c.id).sort().join(",")
-            : "";
+        // Always refresh the list from the backend.
+        // This is important because merged leads keep the same ID,
+        // but their UpdatedAt changes, so they need to move to the top.
+        setConversations(Array.isArray(data) ? data : []);
 
-          const newIds = Array.isArray(data)
-            ? data.map((c) => c.id).sort().join(",")
-            : "";
-
-          if (prevIds !== newIds) {
-            return data;
-          }
-
-          return prevConversations;
-        });
+        // NEW:
+        // When the backend refreshes after new activity,
+        // jump back to page 1 so the newest lead is visible.
+        setCurrentPage(1);
 
         if (!isPolling) {
           trackEvent("Conversations", "Leads Loaded", "Fetch success");
@@ -384,85 +403,6 @@ const Conversations = ({ user, onLogout }) => {
     setSearchTimer(timer);
   };
 
-// Filter, search, paginate, and summarize leads for the table.
-// Search and dropdown filter now work together.
-const filteredConversations = Array.isArray(conversations)
-  ? conversations.filter((conv) => {
-      if (!conv) return false;
-
-    // NEW: Community/client filter.
-    // If "all" is selected, show every lead.
-    // Otherwise, only show leads that match the selected clientKey.
-    const leadClientKey = String(conv.clientKey || "").toLowerCase();
-
-    const matchesSelectedCommunity =
-      selectedCommunity === "all" || leadClientKey === selectedCommunity;
-
-if (!matchesSelectedCommunity) return false;
-
-      const query = searchQuery.trim().toLowerCase();
-
-      const leadName = `${conv.firstName || ""} ${
-        conv.lastName || ""
-      }`.trim();
-
-      const lead = leadName.toLowerCase();
-      const leadEmail = conv.email ? String(conv.email).toLowerCase() : "";
-      const leadPhone = conv.phone ? String(conv.phone).toLowerCase() : "";
-      const leadSource = getLeadSource(conv).toLowerCase();
-
-      const leadCommunity = conv.community
-        ? String(conv.community).toLowerCase()
-        : "";
-
-      const leadCreatedDate = conv.createdAt
-        ? formatLocalDate(conv.createdAt).toLowerCase()
-        : "";
-
-      // Search works across the main fields.
-      const matchesSearch =
-        !query ||
-        lead.includes(query) ||
-        leadEmail.includes(query) ||
-        leadPhone.includes(query) ||
-        leadSource.includes(query) ||
-        leadCommunity.includes(query) ||
-        leadCreatedDate.includes(query);
-
-      // Dropdown filter works even when search is empty.
-      let matchesFilter = true;
-
-      if (leadFilter.startsWith("source:")) {
-        const selectedSource = leadFilter.replace("source:", "");
-        matchesFilter = leadSource === selectedSource;
-      }
-
-      if (leadFilter === "community:has") {
-        matchesFilter = leadCommunity && leadCommunity !== "n/a";
-      }
-
-      if (leadFilter === "community:none") {
-        matchesFilter = !leadCommunity || leadCommunity === "n/a";
-      }
-
-      if (leadFilter === "created:this-week") {
-        matchesFilter = isThisWeek(conv.createdAt);
-      }
-
-      return matchesSearch && matchesFilter;
-    })
-  : [];
-
-  
-    const totalPages = Math.ceil(filteredConversations.length / leadsPerPage);
-
-    const startIndex = (currentPage - 1) * leadsPerPage;
-    const endIndex = startIndex + leadsPerPage;
-
-    const paginatedConversations = filteredConversations.slice(
-      startIndex,
-      endIndex
-    );
 
 
   const today = new Date();
@@ -477,6 +417,135 @@ const isThisWeek = (date) => {
 
   return createdDate >= weekAgo;
 };
+
+  /* ========================================
+   FILTER + SORT LEADS
+
+   NEW:
+   Sort leads by newest activity first.
+
+   This makes older leads jump back to
+   the top whenever they receive new
+   chatbot/webform/survey activity.
+======================================== */
+const filteredConversations = Array.isArray(conversations)
+  ? conversations
+      .filter((conv) => {
+        if (!conv) return false;
+
+        // Community filter
+        const leadClientKey = String(
+          conv.clientKey || ""
+        ).toLowerCase();
+
+        const matchesSelectedCommunity =
+          selectedCommunity === "all" ||
+          leadClientKey === selectedCommunity;
+
+        if (!matchesSelectedCommunity) return false;
+
+        const query = searchQuery.trim().toLowerCase();
+
+        const leadName = `${conv.firstName || ""} ${
+          conv.lastName || ""
+        }`.trim();
+
+        const lead = leadName.toLowerCase();
+
+        const leadEmail = conv.email
+          ? String(conv.email).toLowerCase()
+          : "";
+
+        const leadPhone = conv.phone
+          ? String(conv.phone).toLowerCase()
+          : "";
+
+        const leadSource = getLeadSource(conv).toLowerCase();
+
+        const leadCommunity = conv.community
+          ? String(conv.community).toLowerCase()
+          : "";
+
+        const leadCreatedDate = conv.createdAt
+          ? formatLocalDate(conv.createdAt).toLowerCase()
+          : "";
+
+        // Search matching
+        const matchesSearch =
+          !query ||
+          lead.includes(query) ||
+          leadEmail.includes(query) ||
+          leadPhone.includes(query) ||
+          leadSource.includes(query) ||
+          leadCommunity.includes(query) ||
+          leadCreatedDate.includes(query);
+
+        // Dropdown filters
+        let matchesFilter = true;
+
+        if (leadFilter.startsWith("source:")) {
+          const selectedSource = leadFilter.replace(
+            "source:",
+            ""
+          );
+
+          matchesFilter =
+            leadSource === selectedSource;
+        }
+
+        if (leadFilter === "community:has") {
+          matchesFilter =
+            leadCommunity &&
+            leadCommunity !== "n/a";
+        }
+
+        if (leadFilter === "community:none") {
+          matchesFilter =
+            !leadCommunity ||
+            leadCommunity === "n/a";
+        }
+
+        if (leadFilter === "created:this-week") {
+          matchesFilter = isThisWeek(conv.createdAt);
+        }
+
+        return matchesSearch && matchesFilter;
+      })
+
+      // NEW:
+      // Sort newest activity first.
+      .sort((a, b) => {
+        const aDate = new Date(
+          a.updatedAt || a.createdAt || 0
+        );
+
+        const bDate = new Date(
+          b.updatedAt || b.createdAt || 0
+        );
+
+        const dateDiff = bDate - aDate;
+
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+
+      // If activity times are identical,
+      // show newest lead ID first.
+      return (b.id || 0) - (a.id || 0);
+      })
+
+  : [];
+  
+    const totalPages = Math.ceil(filteredConversations.length / leadsPerPage);
+
+    const startIndex = (currentPage - 1) * leadsPerPage;
+    const endIndex = startIndex + leadsPerPage;
+
+    const paginatedConversations = filteredConversations.slice(
+      startIndex,
+      endIndex
+    );
+
 
 const weeklyLeads = conversations.filter((conv) =>
   isThisWeek(conv.createdAt)
@@ -502,18 +571,20 @@ const weeklySurveyLeads = conversations.filter(
 
 
   const leadStats = {
-    total: Array.isArray(conversations) ? conversations.length : 0,
-    webform: Array.isArray(conversations)
-      ? conversations.filter((conv) => getLeadSource(conv) === "Webform").length
-      : 0,
-    chatbot: Array.isArray(conversations)
-      ? conversations.filter((conv) => getLeadSource(conv) === "Chatbot").length
-      : 0,
-    survey: Array.isArray(conversations)
-      ? conversations.filter((conv) => getLeadSource(conv) === "Survey Form").length
-      : 0,
-  };
+    total: filteredConversations.length,
 
+    webform: filteredConversations.filter(
+      (conv) => getLeadSource(conv) === "Webform"
+    ).length,
+
+    chatbot: filteredConversations.filter(
+      (conv) => getLeadSource(conv) === "Chatbot"
+    ).length,
+
+    survey: filteredConversations.filter(
+      (conv) => getLeadSource(conv) === "Survey Form"
+    ).length,
+  };
 
   // Updates one field in the Add Lead form.
   // Example: typing in First Name updates newLead.firstName.
@@ -617,24 +688,63 @@ const weeklySurveyLeads = conversations.filter(
       };
 
       return (
-        <tr key={conv.id}>
+        <tr key={conv.id} className="conversation-row">
           <td>
             <div className="lead-cell">
-              <div className="lead-avatar">{initials}</div>
 
-              <span
-                className="lead-name clickable"
-                onClick={handleLeadClick}
-                title="View conversation history"
-              >
-                {leadName}
-              </span>
+              {/* =========================================
+                  Lead Avatar + Unread Indicator
+              ========================================= */}
+              <div className="lead-avatar-wrapper">
+
+                {isNewLead(conv.createdAt) && (
+                  <span className="unread-dot" />
+                )}
+
+                <div className="lead-avatar">
+                  {initials}
+                </div>
+
+              </div>
+
+              <div className="lead-title-stack">
+
+                <span
+                  className="lead-name clickable"
+                  onClick={handleLeadClick}
+                  title="View conversation history"
+                >
+                  {leadName}
+                </span>
+
+                {/* Small CRM metadata */}
+                <span className="lead-row-meta">
+                  {getLeadStatus(conv)} • {getLeadSource(conv)}
+                </span>
+
+              </div>
+
+
             </div>
           </td>
 
           <td className="contact-cell">
+
+            {/* Main contact info */}
             <div>{conv.phone || "N/A"}</div>
-            <div className="contact-email">{conv.email || "N/A"}</div>
+
+            <div className="contact-email">
+              {conv.email || "N/A"}
+            </div>
+
+            {/* NEW: CRM activity preview */}
+            <div className="lead-last-activity">
+              Last activity •{" "}
+              {conv.updatedAt
+                ? `${formatLocalDate(conv.updatedAt)} ${formatLocalTime(conv.updatedAt)}`
+                : `${formatLocalDate(conv.createdAt)} ${formatLocalTime(conv.createdAt)}`}
+            </div>
+
           </td>
 
           {/* 
@@ -656,9 +766,9 @@ const weeklySurveyLeads = conversations.filter(
             </td>
 
             <td className="created-cell">
-            <span>{conv.created?.date || formatLocalDate(conv.createdAt)}</span>
+            <span>{formatLocalDate(conv.updatedAt || conv.createdAt)}</span>
             <span className="created-time">
-              {conv.created?.time || formatLocalTime(conv.createdAt)}
+              {formatLocalTime(conv.updatedAt || conv.createdAt)}
             </span>
           </td>
         </tr>
@@ -732,11 +842,14 @@ const weeklySurveyLeads = conversations.filter(
           >
             <option value="all">All Communities</option>
 
-            {communities.map((community) => (
-              <option key={community} value={community}>
-                {community}
-              </option>
-            ))}
+          {communities.map((community) => (
+            <option
+              key={community.clientKey}
+              value={community.clientKey}
+            >
+              {community.communityName}
+            </option>
+          ))}
           </select>              
 
 
@@ -884,113 +997,6 @@ const weeklySurveyLeads = conversations.filter(
               <span>＋</span>
               Add Lead
             </button>
-
-            <button
-              className="btn btn-download"
-              onClick={() =>
-                trackEvent("Conversations", "Download CSV", "Export leads")
-              }
-            >
-              <span>📄</span>
-              Download .csv
-            </button>
-
-{/* Actions dropdown wrapper */}
-    <div
-      className="actions-dropdown"
-      ref={actionsDropdownRef}
-    >  <button
-    type="button"
-    className="btn btn-actions"
-    onClick={() => {
-      // Opens/closes the dropdown menu.
-      setShowActionsMenu((prev) => !prev);
-
-      trackEvent(
-        "Conversations",
-        "Actions Click",
-        "Opened actions menu"
-      );
-    }}
-  >
-    Actions ▾
-  </button>
-
-  {/* Only show the menu when showActionsMenu is true */}
-  {showActionsMenu && (
-    <div className="actions-menu">
-      <button
-        type="button"
-        onClick={() => {
-          setShowActionsMenu(false);
-          trackEvent("Conversations", "Export CSV", "Clicked");
-        }}
-      >
-        <span>📄</span>
-        Export CSV
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          setShowActionsMenu(false);
-          alert("Import Leads will be connected later.");
-        }}
-      >
-        <span>⬆️</span>
-        Import Leads
-      </button>
-
-      <div className="actions-divider" />
-
-      <button
-        type="button"
-        onClick={() => {
-          setShowActionsMenu(false);
-          alert("Bulk mark as contacted will be connected later.");
-        }}
-      >
-        <span>✅</span>
-        Mark as Contacted
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          setShowActionsMenu(false);
-          alert("Assign Leads will be connected later.");
-        }}
-      >
-        <span>👤</span>
-        Assign Leads
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          setShowActionsMenu(false);
-          alert("Archive Leads will be connected later.");
-        }}
-      >
-        <span>🗄️</span>
-        Archive Leads
-      </button>
-
-      <button
-        type="button"
-        className="danger-action"
-        onClick={() => {
-          setShowActionsMenu(false);
-          alert("Bulk Delete will be connected later.");
-        }}
-      >
-        <span>🗑️</span>
-        Bulk Delete
-      </button>
-    </div>
-  )}
-</div>
-
 
 
           </div>
