@@ -674,7 +674,11 @@ const CommunityFormModal = ({
           <div className="community-form-grid">
 
           <label>
-            Community Name <span className="required-star">*</span>
+            <span className="field-label">
+              Community Name
+              <span className="required-star">*</span>
+            </span>
+
             <input
               name="communityName"
               value={community.communityName}
@@ -684,7 +688,10 @@ const CommunityFormModal = ({
           </label>
 
           <label>
-            Website <span className="required-star">*</span>
+            <span className="field-label">
+              Website <span className="required-star">*</span>
+            </span>
+
             <input
               name="website"
               value={community.website}
@@ -694,7 +701,10 @@ const CommunityFormModal = ({
           </label>
 
           <label>
-            Email <span className="required-star">*</span>
+            <span className="field-label">
+              Email <span className="required-star">*</span>
+            </span>
+
             <input
               type="email"
               name="email"
@@ -705,7 +715,10 @@ const CommunityFormModal = ({
           </label>
 
           <label>
-            Phone <span className="required-star">*</span>
+            <span className="field-label">
+              Phone <span className="required-star">*</span>
+            </span>
+
             <input
               name="phone"
               value={community.phone}
@@ -715,7 +728,10 @@ const CommunityFormModal = ({
           </label>
 
           <label className="community-form-wide">
-            Google Property ID 
+            <span className="field-label">
+              Google Property ID
+            </span>
+
             <input
               name="googlePropertyId"
               value={community.googlePropertyId || ""}
@@ -724,7 +740,10 @@ const CommunityFormModal = ({
           </label>
 
           <label className="community-form-wide">
-            Address <span className="required-star">*</span>
+            <span className="field-label">
+              Address <span className="required-star">*</span>
+            </span>
+
             <input
               name="address"
               value={community.address}
@@ -733,38 +752,8 @@ const CommunityFormModal = ({
             />
           </label>
 
-          </div>
 
-          <div className="community-toggle-group">
-            <label>
-              <input
-                type="checkbox"
-                name="webAssistantEnabled"
-                checked={community.webAssistantEnabled}
-                onChange={onChange}
-              />
-              Web Assistant
-            </label>
 
-            <label>
-              <input
-                type="checkbox"
-                name="surveysEnabled"
-                checked={community.surveysEnabled}
-                onChange={onChange}
-              />
-              Surveys
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                name="webformsEnabled"
-                checked={community.webformsEnabled}
-                onChange={onChange}
-              />
-              Webforms
-            </label>
           </div>
 
           <div className="community-modal-actions">
