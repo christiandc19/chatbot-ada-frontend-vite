@@ -351,7 +351,6 @@ const Communities = ({ user, onLogout }) => {
         <Header user={user} onLogout={onLogout} />
 
         <main className="community-loading-state">
-          <p>No communities found.</p>
 
           <button
             type="button"
