@@ -4,7 +4,7 @@ import {
   Building2,
   Search,
   Globe,
-  KeyRound,
+  Phone,
   Bot,
   ClipboardList,
   FileText,
@@ -117,12 +117,12 @@ const Communities = ({ user, onLogout }) => {
 
     return communities.filter((community) => {
       const communityName = community.communityName || "";
-      const clientKey = community.clientKey || "";
+      const address = community.address || "";
       const email = community.email || "";
 
       return (
         communityName.toLowerCase().includes(keyword) ||
-        clientKey.toLowerCase().includes(keyword) ||
+        address.toLowerCase().includes(keyword) ||
         email.toLowerCase().includes(keyword)
       );
     });
@@ -351,7 +351,6 @@ const Communities = ({ user, onLogout }) => {
         <Header user={user} onLogout={onLogout} />
 
         <main className="community-loading-state">
-          <p>No communities found.</p>
 
           <button
             type="button"
@@ -414,7 +413,7 @@ const Communities = ({ user, onLogout }) => {
             <Search size={18} />
             <input
               type="text"
-              placeholder="Search by name, clientKey, or email"
+              placeholder="Search by name, address, or email"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -444,7 +443,7 @@ const Communities = ({ user, onLogout }) => {
 
                     <span className="community-list-copy">
                       <strong>{communityName}</strong>
-                      <small>{clientKey}</small>
+                      <small>{community.address || "No address added"}</small>
                     </span>
                   </button>
                 );
@@ -510,8 +509,10 @@ const Communities = ({ user, onLogout }) => {
                 </div>
 
                 <div>
-                  <KeyRound size={18} />
-                  <span>{getClientKey(selectedCommunity)}</span>
+                  <Phone size={18} />
+                  <span>
+                    {selectedCommunity.phone || "No phone number"}
+                  </span>
                 </div>
 
                 <div>
@@ -670,115 +671,88 @@ const CommunityFormModal = ({
 
         <form onSubmit={onSubmit} className="community-form">
           <div className="community-form-grid">
-            <label>
+
+          <label>
+            <span className="field-label">
               Community Name
-              <input
-                name="communityName"
-                value={community.communityName}
-                onChange={onChange}
-                placeholder="Evergreen Heights Senior Living"
-                required
-              />
-            </label>
+              <span className="required-star">*</span>
+            </span>
 
-            <label>
-              Client Key
-              <input
-                name="clientKey"
-                value={community.clientKey}
-                onChange={onChange}
-                placeholder="evergreen-heights"
-                required
-              />
-            </label>
+            <input
+              name="communityName"
+              value={community.communityName}
+              onChange={onChange}
+              required
+            />
+          </label>
 
-            <label>
-              Email
-              <input
-                type="email"
-                name="email"
-                value={community.email}
-                onChange={onChange}
-                placeholder="info@example.com"
-                required
-              />
-            </label>
+          <label>
+            <span className="field-label">
+              Website <span className="required-star">*</span>
+            </span>
 
-            <label>
-              Phone
-              <input
-                name="phone"
-                value={community.phone}
-                onChange={onChange}
-                placeholder="5551234567"
-              />
-            </label>
+            <input
+              name="website"
+              value={community.website}
+              onChange={onChange}
+              required
+            />
+          </label>
 
-            <label className="community-form-wide">
-              Website
-              <input
-                name="website"
-                value={community.website}
-                onChange={onChange}
-                placeholder="https://example.com"
-              />
-            </label>
+          <label>
+            <span className="field-label">
+              Email <span className="required-star">*</span>
+            </span>
 
-            {/* =====================================================
-                GOOGLE ANALYTICS PROPERTY ID
-            ===================================================== */}
+            <input
+              type="email"
+              name="email"
+              value={community.email}
+              onChange={onChange}
+              required
+            />
+          </label>
 
-            <label className="community-form-wide">
+          <label>
+            <span className="field-label">
+              Phone <span className="required-star">*</span>
+            </span>
+
+            <input
+              name="phone"
+              value={community.phone}
+              onChange={onChange}
+              required
+            />
+          </label>
+
+          <label className="community-form-wide">
+            <span className="field-label">
               Google Property ID
-              <input
-                name="googlePropertyId"
-                value={community.googlePropertyId || ""}
-                onChange={onChange}
-                placeholder="123456789"
-              />
-            </label>
+            </span>
 
-            <label className="community-form-wide">
-              Address
-              <input
-                name="address"
-                value={community.address}
-                onChange={onChange}
-                placeholder="123 Main St"
-              />
-            </label>
-          </div>
+            <input
+              name="googlePropertyId"
+              value={community.googlePropertyId || ""}
+              onChange={onChange}
+            />
+          </label>
 
-          <div className="community-toggle-group">
-            <label>
-              <input
-                type="checkbox"
-                name="webAssistantEnabled"
-                checked={community.webAssistantEnabled}
-                onChange={onChange}
-              />
-              Web Assistant
-            </label>
+          <label className="community-form-wide">
+            <span className="field-label">
+              Address <span className="required-star">*</span>
+            </span>
 
-            <label>
-              <input
-                type="checkbox"
-                name="surveysEnabled"
-                checked={community.surveysEnabled}
-                onChange={onChange}
-              />
-              Surveys
-            </label>
+            <input
+              name="address"
+              value={community.address}
+              onChange={onChange}
+              required
+            />
+          </label>
 
-            <label>
-              <input
-                type="checkbox"
-                name="webformsEnabled"
-                checked={community.webformsEnabled}
-                onChange={onChange}
-              />
-              Webforms
-            </label>
+
+
           </div>
 
           <div className="community-modal-actions">

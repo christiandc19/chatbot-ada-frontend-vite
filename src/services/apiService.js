@@ -441,6 +441,33 @@ async updateLead(leadId, leadData) {
         return this._readJsonOrSuccess(response, "Lead created successfully");
       }
 
+      // Creates a new lead manually from the dashboard using the dedicated dashboard endpoint.
+      // POST /api/Leads/dashboard — protected by AdminApiKeyAuth.
+      async createLeadFromDashboard(leadData) {
+        const payload = {
+          FirstName: leadData.firstName,
+          LastName: leadData.lastName,
+          Email: leadData.email,
+          Phone: leadData.phone,
+          Source: leadData.source || "Manual Lead",
+          LeadStatusId: leadData.leadStatusId ? Number.parseInt(leadData.leadStatusId, 10) : null,
+          Notes: leadData.notes || null,
+          CreatedBy: leadData.createdBy || null,
+        };
+
+        const response = await fetch(`${API_BASE_URL}/leads/dashboard`, {
+          method: "POST",
+          headers: this._buildAdminHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(await this._readError(response, "Failed to create lead"));
+        }
+
+        return this._readJsonOrSuccess(response, "Lead created successfully");
+      }
+
 
 
   async getNotesByLead(leadId) {

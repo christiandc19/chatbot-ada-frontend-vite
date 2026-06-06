@@ -194,9 +194,7 @@ const UpdateCommunity = ({ user, onLogout }) => {
         </button>
 
         <div className="communities-list">
-          {communities.length === 0 ? (
-            <p>No communities found.</p>
-          ) : (
+          {communities.length === 0 ? null : (
             <table className="communities-table">
               <thead>
                 <tr>

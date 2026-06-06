@@ -633,7 +633,7 @@ const weeklySurveyLeads = conversations.filter(
     try {
       setCreatingLead(true);
 
-      await apiService.createLead(newLead);
+      await apiService.createLeadFromDashboard({ ...newLead, createdBy: user?.id ?? null });
 
       // Reload leads after creating a new one.
       const updatedLeads = await apiService.getLeads();
@@ -1115,7 +1115,6 @@ const weeklySurveyLeads = conversations.filter(
                     name="firstName"
                     value={newLead.firstName}
                     onChange={handleNewLeadChange}
-                    placeholder="John"
                   />
                 </label>
 
@@ -1125,7 +1124,6 @@ const weeklySurveyLeads = conversations.filter(
                     name="lastName"
                     value={newLead.lastName}
                     onChange={handleNewLeadChange}
-                    placeholder="Smith"
                   />
                 </label>
               </div>
@@ -1138,7 +1136,6 @@ const weeklySurveyLeads = conversations.filter(
                     type="email"
                     value={newLead.email}
                     onChange={handleNewLeadChange}
-                    placeholder="john@example.com"
                   />
                 </label>
 
@@ -1148,7 +1145,6 @@ const weeklySurveyLeads = conversations.filter(
                     name="phone"
                     value={newLead.phone}
                     onChange={handleNewLeadChange}
-                    placeholder="555-555-5555"
                   />
                 </label>
               </div>
@@ -1189,16 +1185,6 @@ const weeklySurveyLeads = conversations.filter(
                   </select>
                 </label>
               </div>
-
-              <label>
-                Client Key
-                <input
-                  name="clientKey"
-                  value={newLead.clientKey}
-                  onChange={handleNewLeadChange}
-                  placeholder="web-smart-assistant"
-                />
-              </label>
 
               <label>
                 Notes
