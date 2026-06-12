@@ -125,6 +125,25 @@ const Conversations = ({ user, onLogout }) => {
       .join(" ");
   };
 
+  const getLeadCommunityName = (conv) => {
+    if (!conv) return "N/A";
+
+    const communityName =
+      conv.communityName ||
+      conv.CommunityName ||
+      conv.community ||
+      "";
+
+    if (communityName && typeof communityName === "string") {
+      return communityName.trim() || "N/A";
+    }
+
+    if (conv.clientKey) {
+      return formatCommunityName(conv.clientKey);
+    }
+
+    return "N/A";
+  };
 
   const getLeadSource = (conv) => {
     const rawSource = conv.source || conv.leadSource || "";
@@ -462,9 +481,7 @@ const filteredConversations = Array.isArray(conversations)
 
         const leadSource = getLeadSource(conv).toLowerCase();
 
-        const leadCommunity = conv.community
-          ? String(conv.community).toLowerCase()
-          : "";
+        const leadCommunity = getLeadCommunityName(conv).toLowerCase();
 
         const leadCreatedDate = conv.createdAt
           ? formatLocalDate(conv.createdAt).toLowerCase()
@@ -753,7 +770,7 @@ const weeklySurveyLeads = conversations.filter(
             Example:
             "evergreen-heights" → "Evergreen Heights"
           */}
-          <td>{formatCommunityName(conv.clientKey)}</td>
+          <td>{getLeadCommunityName(conv)}</td>
 
             <td>
               <span className={getSourceClass(leadSource)}>{leadSource}</span>
