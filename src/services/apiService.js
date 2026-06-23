@@ -377,6 +377,18 @@ async updateLead(leadId, leadData) {
     return [];
   }
 
+  async getLeadSources() {
+    const response = await fetch(`${API_BASE_URL}/LeadSources`, {
+      headers: this._buildAdminHeaders(),
+    });
+    if (!response.ok) throw new Error(`Failed to fetch lead sources: ${response.status}`);
+    const data = await response.json();
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.$values)) return data.$values;
+    if (data && Array.isArray(data.value)) return data.value;
+    return [];
+  }
+
   async getLeads() {
     try {
       const response = await fetch(`${API_BASE_URL}/leads`, {
@@ -414,6 +426,7 @@ async updateLead(leadId, leadData) {
           Email: leadData.email,
           Phone: leadData.phone,
           Source: leadData.source,
+          LeadSourceId: leadData.leadSourceId ? Number.parseInt(leadData.leadSourceId, 10) : null,
           ClientKey: leadData.clientKey,
           LeadStatusId: leadData.leadStatusId ? Number.parseInt(leadData.leadStatusId, 10) : null,
 
@@ -450,6 +463,7 @@ async updateLead(leadId, leadData) {
           Email: leadData.email,
           Phone: leadData.phone,
           Source: leadData.source || "Manual Lead",
+          LeadSourceId: leadData.leadSourceId ? Number.parseInt(leadData.leadSourceId, 10) : null,
           LeadStatusId: leadData.leadStatusId ? Number.parseInt(leadData.leadStatusId, 10) : null,
           Notes: leadData.notes || null,
           CreatedBy: leadData.createdBy || null,

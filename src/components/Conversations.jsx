@@ -65,7 +65,7 @@ const Conversations = ({ user, onLogout }) => {
     lastName: "",
     email: "",
     phone: "",
-    source: "manual",
+    leadSourceId: "1",
     clientKey: "web-smart-assistant",
     leadStatusId: "",
     notes: "",
@@ -79,6 +79,8 @@ const Conversations = ({ user, onLogout }) => {
 
   // Stores the list of available lead statuses fetched from the API.
   const [leadStatuses, setLeadStatuses] = useState([]);
+  // Stores the list of available lead sources fetched from the API.
+  const [leadSources, setLeadSources] = useState([]);
 
   // Creates the label used in the notification popup.
   // Example: Webform, Survey, Chat
@@ -358,7 +360,26 @@ setCommunities(uniqueCommunities);
       }
     };
 
+    // Fetch lead statuses and lead sources for the Add Lead modal
+    const fetchLeadSources = async () => {
+      try {
+        const sources = await apiService.getLeadSources();
+        const list = Array.isArray(sources) ? sources : [];
+        setLeadSources(list);
+
+        if (list.length > 0) {
+          setNewLead((prev) => ({
+            ...prev,
+            leadSourceId: prev.leadSourceId === "" ? (list[0].id ?? list[0].Id) : prev.leadSourceId,
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch lead sources:", err);
+      }
+    };
+
     fetchLeadStatuses();
+    fetchLeadSources();
 
     const pollingInterval = setInterval(() => {
       fetchConversations(true);
@@ -621,7 +642,7 @@ const weeklySurveyLeads = conversations.filter(
       lastName: "",
       email: "",
       phone: "",
-      source: "manual",
+      leadSourceId: "1",
       clientKey: "web-smart-assistant",
       leadStatusId: leadStatuses.length > 0 ? (leadStatuses[0].id ?? leadStatuses[0].Id) : "",
       notes: "",
@@ -1169,19 +1190,27 @@ const weeklySurveyLeads = conversations.filter(
               <div className="add-lead-grid">
                 <label>
                   Source
-                  <select
-                    name="source"
-                    value={newLead.source}
-                    onChange={handleNewLeadChange}
-                  >
-                    <option value="manual">Manual Lead</option>
-                    <option value="phone-call">Phone Call</option>
-                    <option value="walk-in">Walk-in</option>
-                    <option value="referral">Referral</option>
-                    <option value="chatbot">Chatbot</option>
-                    <option value="webform">Webform</option>
-                    <option value="survey">Survey</option>
-                  </select>
+                  {leadSources && leadSources.length > 0 ? (
+                    <select
+                      name="leadSourceId"
+                      value={newLead.leadSourceId}
+                      onChange={handleNewLeadChange}
+                    >
+                      {leadSources.map((s) => (
+                        <option key={s.id ?? s.Id} value={s.id ?? s.Id}>
+                          {s.name || s.sourceName || s.Source || s.Name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      name="leadSourceId"
+                      value={newLead.leadSourceId}
+                      onChange={handleNewLeadChange}
+                    >
+                      <option value="1">Manual Lead</option>
+                    </select>
+                  )}
                 </label>
 
                 <label>
