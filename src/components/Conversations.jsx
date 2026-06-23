@@ -85,6 +85,19 @@ const Conversations = ({ user, onLogout }) => {
   // Creates the label used in the notification popup.
   // Example: Webform, Survey, Chat
   const getLeadNotificationSource = (lead) => {
+    const sourceId = lead?.leadSourceId ?? lead?.LeadSourceId;
+    if (sourceId != null) {
+      const found = leadSources.find((s) => Number(s.id ?? s.Id) === Number(sourceId));
+      const name = found && (found.name || found.sourceName || found.Source || found.Name);
+      if (name) {
+        const normalizedName = name.toLowerCase();
+        if (normalizedName.includes("webform")) return "Webform";
+        if (normalizedName.includes("survey")) return "Survey";
+        if (normalizedName.includes("chat") || normalizedName.includes("chatbot")) return "Chat";
+        return name;
+      }
+    }
+
     const source = (lead.source || lead.leadSource || "").toLowerCase();
 
     if (source.includes("webform")) return "Webform";
@@ -148,15 +161,20 @@ const Conversations = ({ user, onLogout }) => {
   };
 
   const getLeadSource = (conv) => {
-    const rawSource = conv.source || conv.leadSource || "";
+    const sourceId = conv?.leadSourceId ?? conv?.LeadSourceId;
+    if (sourceId != null) {
+      const found = leadSources.find((s) => Number(s.id ?? s.Id) === Number(sourceId));
+      if (found) {
+        return found.name || found.sourceName || found.Source || found.Name || "Unknown";
+      }
+    }
 
+    const rawSource = conv.source || conv.leadSource || "";
     if (!rawSource || rawSource.trim() === "") {
       return "Chatbot";
     }
 
-
     const normalizedSource = rawSource.toLowerCase();
-
     if (normalizedSource.includes("webform")) return "Webform";
     if (normalizedSource.includes("survey")) return "Survey Form";
     if (normalizedSource.includes("chatbot")) return "Chatbot";
